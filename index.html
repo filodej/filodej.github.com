@@ -1,0 +1,21 @@
+---
+layout: default
+title: Filosoft (Filodej's sandpit)
+---
+
+<div id="home">
+  <h1>Blog Posts</h1>
+  <ul class="posts">
+    {% for post in site.posts %}
+      <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ post.url }}">{{ post.title }}</a></li>
+    {% endfor %}
+  </ul>
+
+  <h1>Useful links</h1>
+  <ul class="posts">
+    <li><a href="https://github.com/alexrothenberg/alexrothenberg.github.com/blob/master/_posts/2011-01-27-moved-blog-to-jekyll-and-github-pages.md">Moving from blofgger to Jekyll</a></li>
+    <li><a href="http://klepas.org/jekyll-a-static-site-generator/">Jekyll static site generator</a></li>
+	<li><a href="http://orgmode.org/worg/org-tutorials/org-jekyll.html">Orgmode + Jekyll</a></li>
+	<li><a href="http://pages.github.com/">Github pages</a></li>
+  </ul>
+</div>
