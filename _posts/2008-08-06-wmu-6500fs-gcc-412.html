@@ -1,0 +1,344 @@
+--- 
+name: wmu-6500fs-gcc-412
+layout: post
+time: 2008-08-06 00:19:00 +02:00
+title: WMU-6500FS - gcc 4.1.2
+---
+<h3>Overview</h3>
+During the <a href="http://filodej.blogspot.com/2008/07/wmu-6500fs-deluge-torrent-part-ii.html">deluge build</a> 
+I tried to workaround the issue with uncaught exceptions (due to the GCC mis-configuration), 
+but after the long effort (and after a discovery of a linker problem) I decided to rebuild GCC compiler.
+<br/>
+
+<span class="fullpost">
+<h3>Rationalization</h3>
+<a href="http://www.uclibc.org/lists/uclibc/2004-May/008981.html">This discussion</a> contains a 
+simple test for exception catching. So we can get the two simple programs and test whether the 
+exceptions are handled properly:
+<pre class="code">
+dev# cd /usr/local/src/
+dev# mkdir test_exceptions
+dev# cd test_exceptions/
+dev# wget <a href="http://codepoet.org/throw1.cpp">http://codepoet.org/throw1.cpp</a>
+dev# wget <a href="http://codepoet.org/throw2.cpp">http://codepoet.org/throw2.cpp</a>
+dev# g++ -Wall -O2 throw1.cpp -o throw1
+dev# ./throw1
+Aborted
+</pre>
+With the current compiler (gcc version 3.3.6 configured without <i>--enable-sjlj-exceptions</i> flag) 
+the exceptions are not caught at all. 
+This message named <a href="http://lists.debian.org/debian-gcc/2004/02/msg00096.html">
+"libgcc_s.so compatibility between 3.3 and 3.4 (sjlj/dwarf2 exceptions)"</a> describes 
+a problem with the change of default exception model and it is likely that this issue
+applies exactly in our case.
+<h3>What version?</h3>
+When we are re-building the compiler, why not to upgrade to a newer version?
+Based on <a href="http://www.uclibc.org/FAQ.html#upstream_versions">uClibc FAQ</a>
+I choose the version 4.1.2 (along with binutils version 2.18):
+<blockquote>
+The last two GNU binutils releases are 2.17 and 2.18. While 2.16 should work, workarounds for bugs in it are not considered.
+
+Since the GCC-3.4 and GCC-4.1 series are the recent stable release series (since the 4.0 and 4.2 series tend to be a bit broken for everyone), 
+they are the latest versions we will address. If you encounter a compile error using an older version (say GCC 3.2), then you're out of luck. 
+You'll need to workaround it yourself. 
+</blockquote>
+
+<h3>binutils-2.18</h3>
+Building this package was the easy part:
+<br/>
+<b>Build results:</b>
+<a href="http://filodej.ic.cz/filopack/binutils-2.18.tar.bz2">[binary]</a>
+<a href="http://filodej.ic.cz/filopack/.filopack/binutils-2.18.lst">[files list]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://ftp.gnu.org/gnu/binutils/binutils-2.18.tar.bz2">http://ftp.gnu.org/gnu/binutils/binutils-2.18.tar.bz2</a>
+dev# tar xjvf binutils-2.18.tar.bz2
+dev# cd binutils-2.18
+dev# ./configure --host=i386-linux-uclibc --target=i386-linux-uclibc --build=i386-pc-linux-uclibc --prefix=/mnt/C/sys
+dev# ./make
+dev# make install
+</pre>
+<h3>gcc 4.1.2</h3>
+<b>Info sources:</b>
+<a href="http://gcc.gnu.org/install/prerequisites.html">[Prerequisites]</a>
+<a href="http://gcc.gnu.org/install/configure.html">[How to configure]</a>
+<a href="http://gcc.gnu.org/install/build.html">[How to build]</a>
+<br/>
+<b>Build results:</b>
+<a href="http://filodej.ic.cz/filopack/gcc-4.1.2-sjlj.tar.bz2">[binary]</a>
+<a href="http://filodej.ic.cz/filopack/.filopack/gcc-4.1.2-sjlj.lst">[files list]</a>
+<br/>
+<br/>
+<b>Build sequence:</b><br/>
+We can either download whole source package:
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-4.1.2.tar.bz2">ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-4.1.2.tar.bz2</a>
+dev# tar xjvf gcc-4.1.2.tar.bz2
+dev# cd gcc-4.1.2/
+</pre>
+... or we can pick out just packages we are interested in - for example:
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-core-4.1.2.tar.bz2">ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-core-4.1.2.tar.bz2</a>
+dev# tar xjvf gcc-core-4.1.2.tar.bz2
+dev# wget <a href="ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-g++-4.1.2.tar.bz2">ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-g++-4.1.2.tar.bz2</a>
+dev# tar xjvf gcc-g++-4.1.2.tar.bz2
+dev# wget <a href="ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-objc-4.1.2.tar.bz2">ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-objc-4.1.2.tar.bz2</a>
+dev# tar xjvf gcc-objc-4.1.2.tar.bz2
+dev# wget <a href="ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-testsuite-4.1.2.tar.bz2">ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.1.2/gcc-testsuite-4.1.2.tar.bz2</a>
+dev# tar xjvf gcc-testsuite-4.1.2.tar.bz2
+dev# cd gcc-4.1.2/
+</pre>
+Now we can try to configure it:
+<pre class="code">
+dev# ./configure --prefix=/mnt/C/sys --host=i386-linux-uclibc --target=i386-linux-uclibc --build=i386-pc-linux-uclibc 
+--enable-languages=c,c++ --enable-shared --disable-__cxa_atexit --enable-target-optspace --with-gnu-ld --disable-nls 
+--enable-multilib --with-x --x-includes=/mnt/C/sys/X11/include/ --x-libraries=/mnt/C/sys/X11/lib/ 
+--with-gxx-include-dir=/usr/include/c++ --enable-bootstrap 
+...
+checking for MPFR... no
+*** This configuration is not supported in the following subdirectories:
+     target-libada gnattools target-libgfortran target-libffi target-boehm-gc 
+     target-zlib target-libjava zlib fastjar target-libobjc
+    (Any other directories should still work fine.)
+</pre>
+<blockquote>
+The <a href="http://www.mpfr.org/">MPFR</a> library is a C library for multiple-precision floating-point 
+computations with correct rounding. 
+</blockquote>
+For now I decided to proceed without it:
+<pre class="code">
+dev# make
+...
+/usr/local/src/gcc-4.1.2/host-i386-linux-uclibc/prev-gcc/xgcc 
+-B/usr/local/src/gcc-4.1.2/host-i386-linux-uclibc/prev-gcc/ -B/mnt/C/sys/i386-linux-uclibc/bin/   
+-O2 -g -fomit-frame-pointer -DIN_GCC   
+-W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -pedantic 
+-Wno-long-long -Wno-variadic-macros -Wold-style-definition -Wmissing-format-attribute 
+-Werror    -DHAVE_CONFIG_H -DGENERATOR_FILE  -o build/genmodes \
+ build/genmodes.o build/errors.o ../../build-i386-pc-linux-uclibc/libiberty/libiberty.a
+build/genmodes -h > tmp-modes.h
+/bin/sh: build/genmodes: No such file or directory
+make[3]: *** [s-modes] Error 127
+</pre>
+This problem emerged after the long portion of the build process, in stage 2. 
+When we try to launch genmodes from the stage 1 (built with the "old" gcc)
+it runs with no problem:
+<pre class="code">
+dev# ./host-i386-linux-uclibc/stage1-gcc/build/genmodes
+...
+DOUBLE ? &ieee_extended_intel_96_round_53_format : &ieee_extended_intel_96_format);
+}
+</pre>
+But the one from stage 2 (built with a new gcc) does not run at all:
+<pre class="code">
+dev# ./host-i386-linux-uclibc/stage2-gcc/build/genmodes
+-sh: ./host-i386-linux-uclibc/stage2-gcc/build/genmodes: No such file or directory
+</pre>
+In <a href="http://www.uclibc.org/lists/uclibc/2004-October/010365.html">this message</a>
+somebody is dealing with similar problem - In such cases it seems there is wrong path 
+to the loader hardcoded in the generated elf file.
+<br/>
+So let's inspect the executables with <a href="http://linux.die.net/man/1/readelf">readelf</a> tool 
+(we are mainly interested in used dynamic loader aka interpreter):
+<pre class="code">
+dev# readelf -a ./host-i386-linux-uclibc/stage1-gcc/build/genmodes | grep interpreter
+      [Requesting program interpreter: <b>/lib/ld-uClibc.so.0</b>]
+dev# readelf -a ./host-i386-linux-uclibc/stage2-gcc/build/genmodes | grep interpreter
+      [Requesting program interpreter: <b>/lib/ld-linux.so.2</b>]
+</pre>
+So now we see the root of the problem. Now how to solve it...
+I found that there is the loader path hardcoded in <i>gcc/config/linux.h</i> (it does not 
+depend on <b>--target</b> configuration) as follows:
+<pre class="code">
+#define DYNAMIC_LINKER "/lib/ld-linux.so.2"
+</pre>
+... so it seems we need a patch to correct this (and and possibly other settings)
+specific to the build in uClibc environment.
+<br/>
+After some Web browsing I have found such set of patches 
+<a href="http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2?rev=353">here</a>
+(the patches are actually for gcc-4.1.0, to overcome it we use -p1 
+<a href="http://linux.die.net/man/1/patch">patch</a> option instead of -p1):
+<pre class="code">
+dev# cd /usr/local/src/gcc-4.1.2
+dev# wget -O 100-uclibc-conf.patch <a href="http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2/100-uclibc-conf.patch?rev=353&format=raw">"http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2/100-uclibc-conf.patch?rev=353&format=raw"</a>
+dev# patch -p1 < 100-uclibc-conf.patch
+</pre>
+... now try to continue and after long time we end up with another kind of problem, 
+missing locale support in uClibc:
+<pre class="code">
+dev# make
+...
+-fdiagnostics-show-location=once -ffunction-sections -fdata-sections -c ../../.././libstdc++-v3/src/ctype.cc  -fPIC -DPIC -o .libs/ctype.o
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h: In static member function 'static const short unsigned int* std::ctype&lt;char&gt;::classic_table()':
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:51: error: '__ctype_b' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h: In constructor 'std::ctype&lt;char&gt;::ctype(int*, const short unsigned int*, bool, size_t)':
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:85: error: '__ctype_toupper' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:86: error: '__ctype_tolower' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:87: error: '__ctype_b' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h: In constructor 'std::ctype&lt;char&gt;::ctype(const short unsigned int*, bool, size_t)':
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:120: error: '__ctype_toupper' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:121: error: '__ctype_tolower' was not declared in this scope
+/usr/local/src/gcc-4.1.2/i386-linux-uclibc/libstdc++-v3/include/i386-linux-uclibc/bits/ctype_noninline.h:122: error: '__ctype_b' was not declared in this scope
+make[4]: *** [ctype.lo] Error 1
+...
+</pre>
+For this there is another <a href="http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2/200-uclibc-locale.patch?rev=353">patch</a> we can apply:
+<pre class="code">
+dev# cd /usr/local/src/gcc-4.1.2
+dev# wget -O 200-uclibc-locale.patch <a href="http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2/200-uclibc-locale.patch?rev=353&format=raw">"http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2/200-uclibc-locale.patch?rev=353&format=raw"</a>
+dev# patch -p1 < 200-uclibc-locale.patch 
+</pre>
+After that I was able to finish build and installation successfully:
+<pre class="code">
+dev# make
+dev# make install
+dev# gcc --version
+gcc (GCC) 4.1.2
+Copyright (C) 2006 Free Software Foundation, Inc.
+...
+</pre>
+Ok, let's test the new compiler with our simple exception test:
+<pre class="code">
+dev# cd /usr/local/src/test_exceptions/
+dev# g++ -Wall -O2 throw1.cpp -o throw1
+/mnt/C/sys/lib/gcc/i386-linux-uclibc/4.1.2/../../../../i386-linux-uclibc/lib/libstdc++.so: 
+  undefined reference to `___tls_get_addr'
+collect2: ld returned 1 exit status
+</pre>
+According to <a href="http://linux.die.net/man/1/ldd">ldd</a> it seems there are no missing library dependencies:
+<pre class="code">
+dev# ldd /mnt/C/sys/lib/gcc/i386-linux-uclibc/4.1.2/../../../../i386-linux-uclibc/lib/libstdc++.so
+  libm.so.0 => /lib/libm.so.0 (0x00000000)
+  libgcc_s.so.1 => /lib/libgcc_s.so.1 (0x00000000)
+  libc.so.0 => /lib/libc.so.0 (0x00000000)
+  /lib/ld-uClibc.so.0 => /lib/ld-uClibc.so.0 (0x00000000)
+</pre>
+Following <a href="http://gcc.gnu.org/ml/gcc-help/2007-01/msg00093.html">message</a> contains some info 
+about this issue. According to <a href="http://www.uclibc.org/lists/uclibc/2006-March/015046.html">this message</a> 
+there should be no tls problem after applying all the patches, so maybe the correct solution is to download 
+all remaining patches from 
+<a href="http://dev.wireless-fr.org/browser/firmware/trunk/kamikaze/toolchain/gcc/patches/4.1.2?rev=353">this site</a>.
+There is one <a href="">patch</a> dealing with libstdc++, but I am not sure whether it solves the TLS problem.
+<br/>
+At the time I decided to re-configure GCC regarding to advice in 
+<a href="http://www.busybox.net/lists/uclibc/2006-March/015008.html">this message</a>:
+<pre class="code">
+dev# cd /usr/local/src/gcc-4.1.2
+dev# make distclean
+dev# ./configure --prefix=/mnt/C/sys --host=i386-linux-uclibc --target=i386-linux-uclibc 
+--build=i386-pc-linux-uclibc --enable-languages=c,c++ --enable-shared --disable-__cxa_atexit 
+--enable-target-optspace --with-gnu-ld --disable-nls --enable-multilib --with-x 
+--x-includes=/mnt/C/sys/X11/include/ --x-libraries=/mnt/C/sys/X11/lib/ 
+--with-gxx-include-dir=/usr/include/c++ --enable-bootstrap <b>--disable-tls</b>
+dev# make
+dev# make install
+</pre>
+Now let's repeat the test:
+<pre class="code">
+dev# cd /usr/local/src/test_exceptions/
+dev# g++ -Wall -O2 throw1.cpp -o throw1
+dev# ./throw1
+Aborted
+</pre>
+It seem that exceptions are still not being caught, let's debug it just to make sure:
+<pre class="code">
+dev# gdb throw1
+GNU gdb 6.3
+...
+(gdb) run
+Starting program: /usr/local/src/test_exceptions/throw1
+
+Program received signal SIGABRT, Aborted.
+0xb7e63164 in kill () from /lib/libc.so.0
+
+(gdb) where
+#0  0xb7e63164 in kill () from /lib/libc.so.0
+#1  0xb7e5345a in raise () from /lib/libc.so.0
+#2  0xb7e5cc67 in abort () from /lib/libc.so.0
+#3  0xb7eb82f8 in uw_init_context_1 (context=0xbf83b150, outer_cfa=0xbf83b1d0, outer_ra=0xb7f5fb08)
+    at ../.././gcc/unwind-dw2.c:1255
+#4  0xb7eb86d4 in _Unwind_RaiseException (exc=0x804ab68) at unwind.inc:92
+#5  0xb7f5fb08 in __cxa_throw (obj=0x804ab88, tinfo=0x80499e0, dest=0)
+    at ../../.././libstdc++-v3/libsupc++/eh_throw.cc:72
+#6  0x08048737 in main ()
+
+(gdb) list
+67        header->unwindHeader.exception_cleanup = __gxx_exception_cleanup;
+68
+69      #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
+70        <b>_Unwind_SjLj_RaiseException</b> (&header->unwindHeader);
+71      #else
+72        <b>_Unwind_RaiseException</b> (&header->unwindHeader);
+73      #endif
+74
+75        // Some sort of unwinding error.  Note that terminate is a handler.
+76        __cxa_begin_catch (&header->unwindHeader);
+</pre>
+So it seems there are still two versions of exception handling and the one without SjLj
+does not work even with the new gcc version. I do not know exactly what is going on here, 
+initially I thoought that the exception problem is specific to the 3.3 - 3.4 gcc versions,
+but regarding to <a href="http://www.uclibc.org/lists/uclibc/2005-June/011851.html">this message</a>
+it is possible that in some scenarios the <b>--enable-sjlj-exceptions</b> configuration
+is necessary for 4.x versions as well:
+<blockquote>
+I have rebuilt gcc-3.4.4 w/ sjlj-exceptions, both the uclibc++ test and 
+and throw2 perform ok against libstdc++ and uclibc++, so up to 3.4.4 (but 
+probably 4.0.0 too) need --enable-sjlj-exceptions
+</blockquote>
+So let's try to re-configure the build once more:
+<pre class="code">
+dev# cd /usr/local/src/gcc-4.1.2
+dev# make distclean
+dev# ./configure --prefix=/mnt/C/sys --host=i386-linux-uclibc --target=i386-linux-uclibc 
+--build=i386-pc-linux-uclibc --enable-languages=c,c++ --enable-shared --disable-__cxa_atexit 
+--enable-target-optspace --with-gnu-ld --disable-nls --enable-multilib --with-x 
+--x-includes=/mnt/C/sys/X11/include/ --x-libraries=/mnt/C/sys/X11/lib/ 
+--with-gxx-include-dir=/usr/include/c++ --enable-bootstrap --disable-tls <b>--enable-sjlj-exceptions</b>
+dev# make
+dev# make install
+</pre>
+And now when we repeat the test:
+<pre class="code">
+dev# cd /usr/local/src/test_exceptions/
+dev# g++ -Wall -O2 throw1.cpp -o throw1
+dev# ./throw1
+caught an exception
+</pre>
+Hurray! It seems now we have some progress.
+<br />
+Let's try the second one:
+<pre class="code">
+dev# g++ -Wall -O2 throw2.cpp -o throw2
+dev# ./throw2
+1  Throwing out_of_range()
+    Catching: out_of_range out_of_range meaningful comment
+2  Throwing exception()   // Can't specify comment
+    Catching: St9exception
+3  Throwing underflow_error  // caught by base class (runtime_error)
+    Catching: runtime_error underflow_error
+4  Throwing runtime_error
+    Catching: runtime_error a comment
+5  Throwing length_error   // caught be super-super-class (exception)
+    Catching: St9exception
+6  Throwing int
+    Catching: int 26
+7  Throwing const char*
+    Catching: const char* This is a const char*
+8  Throwing string
+    Catching: string I'm a string
+9  Throwing float
+    ERROR: Nobody caught this!
+10  Throwing up
+</pre>
+The exception #9 is not caught but regarding to <a href="http://www.uclibc.org/lists/uclibc/2004-May/008981.html">this discussion</a> 
+it seems ok.
+<br/>
+Now we have the gcc version 4.1.2 properly configured, built and ready for building c++ 
+applications like <a href="http://filodej.blogspot.com/2008/08/wmu-6500fs-deluge-torrent-part-iii.html">deluge</a>.
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-3977072949656746748?l=filodej.blogspot.com' alt='' /></div>

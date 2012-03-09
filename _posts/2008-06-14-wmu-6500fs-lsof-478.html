@@ -1,0 +1,55 @@
+--- 
+name: wmu-6500fs-lsof-478
+layout: post
+time: 2008-06-14 21:54:00 +02:00
+title: WMU-6500FS - lsof 4.78
+---
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvwzAMKM_I/AAAAAAAABd8/K82O5BfJ5Yk/s1600-h/wmu6500fs-lsof.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvwzAMKM_I/AAAAAAAABd8/K82O5BfJ5Yk/s400/wmu6500fs-lsof.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5218529352253846514" /></a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/lsof-4.78.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/lsof-4.78.lst">[files list]</a>
+<br/>
+<br/>
+In the Web UI there is a possibility to create/delete/resize/format individual disk partitions (<i>WebUI/Storage configuration/Disk utility</i>) however sometimes it is not possible, e.g. <i>format</i> operation fails with error <i>"Device is busy"</i>. 
+<br/>
+It seems there is some process using the drive (holding some file handles or so). The <b>lsof</b> command (meaning <i>"LiSt Open Files"</i>) is a tool which can be used to determine what files are being held by which processes.
+<br/>
+<br/>
+<b>Info sources:</b>
+<a href="http://mindspill.net/computing/linux-notes/how-to-get-around-the-umount-device-is-busy-error..html">[Device is busy error]</a>
+<a href="http://en.wikipedia.org/wiki/Lsof">[lsof tool]</a>
+<a href="http://people.freebsd.org/~abe/">[Vic Abell's Home Page]</a>
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<br/>
+Download and extract:
+<pre class="code">
+dev# wget <a href="ftp://ftp.cert.dfn.de/pub/tools/admin/lsof/lsof_4.78.tar.gz">ftp://ftp.cert.dfn.de/pub/tools/admin/lsof/lsof_4.78.tar.gz</a>
+dev# tar xzvf lsof_4.78.tar.gz
+dev# cd lsof_4.78
+dev# tar xvf lsof_4.78_src.tar
+dev# cd lsof_4.78_src
+</pre>
+Configure settings <br/>
+(I left all default values, it is here just for you to see what the possible settings are).
+<pre class="code">
+dev# ./Configure linux
+Do you want to take inventory (y|n) [y]? y
+Do you want to customize (y|n) [y]? y
+Customizing ...
+Enable HASSECURITY (y|n) [n]?
+Disable WARNINGSTATE? (y|n) [n]?
+Enable HASKERNIDCK (y|n) [n]?
+Do you want to rename machine.h to machine.h.old and replace it with
+new_machine.h (y|n) [y]? y
+dev# make
+</pre>
+In order to find what processes hold a file on the <i>C</i> partition, you can use the following command:
+<pre class="code">
+box# lsof | grep mnt/C
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-2497335776077918217?l=filodej.blogspot.com' alt='' /></div>

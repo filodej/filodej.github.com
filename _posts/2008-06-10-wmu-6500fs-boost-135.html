@@ -1,0 +1,29 @@
+--- 
+name: wmu-6500fs-boost-135
+layout: post
+time: 2008-06-10 22:54:00 +02:00
+title: WMU-6500FS - Boost 1.35
+---
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/boost-1.35.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/boost-1.35.lst">[files list]</a>
+<br/>
+Note: besides the DSO files this archive contains even all the boost header files and documentation (not actually necessary on the box).
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<pre class="code">
+dev# wget <a href="http://downloads.sourceforge.net/boost/boost_1_35_0.tar.bz2?modtime=1206795398&big_mirror=0">http://downloads.sourceforge.net/boost/boost_1_35_0.tar.bz2?modtime=1206795398&big_mirror=0</a>
+dev# tar xjvf boost_1_35_0.tar.bz2
+dev# cd boost_1_35_0
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+dev# make install
+</pre>
+The boost library names are more specific (contain boost version and compiler version) than some software demand. I do not know whether there should be <i>libboost_*-mt.so</i> symlinks, maybe I have not configured boost library properly, as a quick fix I have created the links manually:
+<pre class="code">
+dev# cd /mnt/C/sys/lib
+dev# for i in `ls ./libboost_*-gcc33-mt-1_35.so.1.35.0`; do ln -s `basename $i` ${i/%-gcc33-mt-1_35.so.1.35.0/-mt.so}; done
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-3444024804344318679?l=filodej.blogspot.com' alt='' /></div>

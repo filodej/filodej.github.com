@@ -1,0 +1,27 @@
+--- 
+name: wmu-6500fs-built-sw-sqllite-358
+layout: post
+time: 2008-06-09 08:35:00 +02:00
+title: WMU-6500FS - SQLLite 3.5.8
+---
+<b>Build result:</b>
+<a href="http://philodej.googlepages.com/sqlite-3.5.8.tgz">[binary]</a>
+<a href="http://philodej.googlepages.com/sqlite-3.5.8.lst">[files list]</a>
+<br/>
+Alternatively you can download the JoKeR's one <a href="http://mgb111.pradnik.net/addons/servers-sql/sqlite-3.3.3-test.tar">[here]</a>
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence</b>
+<pre class="code">
+dev# wget <a href="http://www.sqlite.org/sqlite-amalgamation-3.5.8.tar.gz">http://www.sqlite.org/sqlite-amalgamation-3.5.8.tar.gz</a>
+dev# tar xzvf sqlite-amalgamation-3.5.8.tar.gz
+dev# cd sqlite-3.5.8/
+</pre>
+To avoid some problems with <i>testThreadLockingBehavior</i> - finishing with SIG32 - disable thread safety. Without this settings I have experienced a (silent) crash during the CVSTrac initialization (<a href="http://www.mail-archive.com/sqlite-users@sqlite.org/msg28082.html">someone</a> is experiencing the same).
+<pre class="code">
+dev# ./configure --prefix=/mnt/C/sys <b>--enable-threadsafe=no</b>
+dev# make
+dev# make install
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-1862522566136880009?l=filodej.blogspot.com' alt='' /></div>

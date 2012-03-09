@@ -1,0 +1,154 @@
+--- 
+name: wmu-6500fs-xmlto-0020
+layout: post
+time: 2008-06-18 17:50:00 +02:00
+title: WMU-6500FS - xml stuff
+---
+<h3>xmlto 0.0.20</h3>
+<b>Build results:</b> 
+Not actually deployed to the box, just built as an Xorg dependency...
+<br/>
+<br/>
+<b>Dependencies:</b>
+<a href="#sgml-base">[sgml-base 1.26]</a>
+[docbook-xsl-1.74]
+[docbook-xml-4.2]
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<br/>
+I think it is not necessary to deploy xmlto to the box, co will configure it locally (it will not go to the <i>/mnt/C/sys</i> directory).
+<pre class="code">
+dev# wget http://cyberelk.net/tim/data/xmlto/stable/xmlto-0.0.20.tar.bz2
+dev# tar xjvf xmlto-0.0.20.tar.bz2
+dev# cd xmlto-0.0.20
+dev# ./configure
+dev# make
+I/O error : Attempt to load network entity http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl
+...
+Variable $SGML_CATALOG_FILES not set
+</pre>
+It seems there is no support for XML catalogs on the system. According to <a href="http://kbase.wincent.com/old/knowledge-base/Setting_up_the_Git_documentation_build_chain_on_Mac_OS_X_Leopard.html">this source</a> we can fix it in a following way:
+<pre class="code">
+dev# mkdir -p /usr/local/etc/xml
+dev# xmlcatalog --noout --create /usr/local/etc/xml/catalog
+dev# mkdir -p /usr/local/share/docbook/xsl
+dev# cd /usr/local/share/docbook/xsl
+dev# wget
+"<a href="http://downloads.sourceforge.net/docbook/docbook-xsl-1.74.0.tar.bz2?modtime=1212403365&big_mirror=0">http://downloads.sourceforge.net/docbook/docbook-xsl-1.74.0.tar.bz2?modtime=1212403365&big_mirror=0</a>"
+-O docbook-xsl-1.74.tar.bz2
+dev# tar xjvf docbook-xsl-1.74.tar.bz
+</pre>
+I would have liked to install it in <i>/usr/local/etc</i>, but according to the source only <i>/etc</i> works
+<pre class="code">
+dev# mkdir -p /etc/xml
+dev# xmlcatalog --noout --add 'nextCatalog' '' 'file:///usr/local/share/docbook/docbook-xsl-1.73.2/catalog.xml' --create /etc/xml/catalog
+</pre>
+Now it is time to install the catalog:
+<pre class="code">
+dev# cd /usr/local/share/docbook/xsl/docbook-xsl-1.74.0/
+dev# ./install.sh
+WARNING: This install script is meant to be run as a non-root
+         user, but you are running it as root.
+
+Are you sure you want to continue? [No] Y
+...
+Create /root/.resolver/CatalogManager.properties file? [Yes] Y
+...
+Add /etc/xml/catalog to /root/.resolver/CatalogManager.properties? [Yes] Y
+...
+Add /usr/local/share/docbook/xsl/docbook-xsl-1.74.0/catalog.xml
+to /root/.resolver/CatalogManager.properties file? [Yes] Y
+...
+To source your shell environment for this distribution, type the
+following:
+. /usr/local/share/docbook/xsl/docbook-xsl-1.74.0/.profile.incl
+dev# . /usr/local/share/docbook/xsl/docbook-xsl-1.74.0/.profile.incl
+</pre>
+Now back to the xmlto installation:
+<pre class="code">
+dev# cd /usr/local/src/xmlto-0.0.20
+dev# make clean
+dev# ./configure
+dev# make
+I/O error : Attempt to load network entity http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd
+/usr/local/src/xmlto-0.0.20/./doc/xmlif.xml:4: warning: failed to load external entity "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd"
+   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+</pre>
+There is a progress, but we are not done withe XML catalogs yet:
+<pre class="code">
+dev# cd /usr/local/share/docbook
+dev# wget <a href="http://www.oasis-open.org/docbook/xml/4.2/docbook-xml-4.2.zip">http://www.oasis-open.org/docbook/xml/4.2/docbook-xml-4.2.zip</a>
+</pre>
+There is a bug in the busybox version of <i>unzip</i> - for details see <a href="http://www.mail-archive.com/busybox@busybox.net/msg02249.html">this</a> message.
+<br/>
+As a workaround we can pre-create the directories before the actual unzipping:
+<pre class="code">
+dev# mkdir -p docbook-xml-4.2/ent
+dev# unzip docbook-xml-4.2.zip -d docbook-xml-4.2
+</pre>
+Now we can register the new XML catalog:
+<pre class="code">
+dev# xmlcatalog --noout --add nextCatalog '' file:///usr/local/share/docbook/docbook-xml-4.2/catalog.xml --create /etc/xml/catalog
+</pre>
+And finally finish the xmlto installation:
+<pre class="code">
+dev# cd /usr/local/src/xmlto-0.0.20
+dev# make clean
+dev# ./configure
+dev# make
+dev# make install
+</pre>
+<a name="libxslt"></a>
+<h3>libxslt - 1.1.22</h3>
+<b>Build results:</b> 
+<a href="http://philodej.googlepages.com/libxslt-1.1.22.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/libxslt-1.1.22.lst">[list files]</a>
+<br/>
+<br/>
+<b>Dependencies:</b>
+<a href="#libxml">[libxml2-2.6.30]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /ust/local/src
+dev# wget <a href="ftp://ftp.gnome.org/pub/GNOME/sources/libxslt/1.1/libxslt-1.1.22.tar.bz2">ftp://ftp.gnome.org/pub/GNOME/sources/libxslt/1.1/libxslt-1.1.22.tar.bz2</a>
+dev# tar xjvf libxslt-1.1.22.tar.bz2
+dev# cd libxslt-1.1.22
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+dev# make install
+</pre>
+<a name="libxml2"></a>
+<h3>libxml2 2.6.30</h3>
+<b>Build results:</b> 
+<a href="http://philodej.googlepages.com/libxml2-2.6.30.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/libxml2-2.6.30.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# wget <a href="ftp://ftp.gnome.org/pub/GNOME/sources/libxml2/2.6/libxml2-2.6.30.tar.bz2">ftp://ftp.gnome.org/pub/GNOME/sources/libxml2/2.6/libxml2-2.6.30.tar.bz2</a>
+dev# tar xjvf libxml2-2.6.30.tar.bz2
+dev# cd libxml2-2.6.30
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+dev# make install
+</pre>
+<a name="sgml-base"></a>
+<h3>sgml-base 1.26</h3>
+<b>Build results:</b> Not actually deployed to the box
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://ftp.de.debian.org/debian/pool/main/s/sgml-base/sgml-base_1.26.tar.gz">http://ftp.de.debian.org/debian/pool/main/s/sgml-base/sgml-base_1.26.tar.gz</a>
+dev# tar xzvf sgml-base_1.26.tar.gz
+dev# cd sgml-base-1.26
+dev# make
+dev# make install
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-5748138170945774855?l=filodej.blogspot.com' alt='' /></div>

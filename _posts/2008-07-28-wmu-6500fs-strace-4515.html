@@ -1,0 +1,31 @@
+--- 
+name: wmu-6500fs-strace-4515
+layout: post
+time: 2008-07-28 14:24:00 +02:00
+title: WMU-6500FS - strace 4.5.15
+---
+<i>strace</i> is a system call tracer, i.e. a debugging tool which prints out a trace 
+of all the system calls made by a another process/program.
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SI27QRdT_0I/AAAAAAAABms/nwfx9Y3xw_w/s1600-h/wmu6500fs-strace.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SI27QRdT_0I/AAAAAAAABms/nwfx9Y3xw_w/s400/wmu6500fs-strace.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5228040630685663042" /></a>
+<b>Build result:</b>
+<a href="http://philodej.googlepages.com/strace-4.5.15.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/strace-4.5.15.lst">[files list]</a>
+<br/>
+<br/>
+<b>Info sources:</b>
+<a href="http://www.linuxcommand.org/man_pages/strace1.html">[Man page]</a>
+<a href="http://sourceforge.net/projects/strace/">[Project page]</a>
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<pre class="code">
+dev# wget <a href="http://downloads.sourceforge.net/strace/strace-4.5.15.tar.bz2?modtime=1168972008&big_mirror=0&filesize=455607">"http://downloads.sourceforge.net/strace/strace-4.5.15.tar.bz2?modtime=1168972008&big_mirror=0&filesize=455607"</a>
+dev# tar xjvf strace-4.5.15.tar.bz2
+dev# cd strace-4.5.15
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+cdv# make install
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-5568342161680879110?l=filodej.blogspot.com' alt='' /></div>

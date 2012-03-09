@@ -1,0 +1,243 @@
+--- 
+name: wmu-6500fs-xterm-237
+layout: post
+time: 2008-12-20 22:30:00 +01:00
+title: WMU-6500FS - xterm 237
+---
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SU1tG8NItXI/AAAAAAAACZI/Ut0ouBmr9v4/s1600-h/xterm-htop.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 285px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SU1tG8NItXI/AAAAAAAACZI/Ut0ouBmr9v4/s400/xterm-htop.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5281997903983326578" /></a>
+
+<b>GUI dependencies:</b>
+<a href="http://filodej.ic.cz/filopack/x11-7.1.tar.bz2">[X.Org]</a>
+
+<h3>Build result</h3>
+<a href="http://filodej.ic.cz/filopack/xterm-237.tar.bz2">[binary]</a>
+<a href="http://filodej.ic.cz/filopack/.filopack/xterm-237.lst">[file list]</a>
+<br/>
+
+<h3>Installation</h3>
+<pre class="code">
+box# <b>cd /mnt/C</b>
+box# <b>./filopack.sh --download xterm-237</b>
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Downloading package xterm-237 from http://filodej.ic.cz ...
+connected!
+
+Length: 502 [text/plain]
+connected!
+
+Length: 177,869 [application/x-tar]
+box# <b>./filopack.sh --install xterm-237</b>
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Sure to unpack xterm-237 locally at /mnt/C (y/n)?y
+sys/X11/share/pixmaps/xterm-color_32x32.xpm
+sys/X11/share/pixmaps/xterm-color_48x48.xpm
+sys/X11/share/pixmaps/xterm_32x32.xpm
+sys/X11/share/pixmaps/xterm_48x48.xpm
+sys/X11/man/man1/xterm.1
+sys/X11/man/man1/resize.1
+sys/X11/man/man1/uxterm.1
+sys/X11/man/man1/koi8rxterm.1
+sys/X11/lib/X11/app-defaults/XTerm
+sys/X11/lib/X11/app-defaults/XTerm-color
+sys/X11/lib/X11/app-defaults/UXTerm
+sys/X11/lib/X11/app-defaults/KOI8RXTerm
+sys/X11/bin/xterm
+sys/X11/bin/resize
+sys/X11/bin/uxterm
+sys/X11/bin/koi8rxterm
+box# <b>xterm</b>
+</pre>
+<br/>
+<a name="env-config"></a>
+Make sure you have the environment variables set properly (you can make it permanent e.g. by editing the <i>/mnt/C/sys/etc/profile</i>; for details see the <a href="http://filodej.blogspot.com/2008/06/wmu-6500fs-box-with-jokers-fw.html#x-config">X Configuration</a> post):
+<br/>
+<br/>
+<i>PATH</i> variable can possibly contain the <i>/mnt/C/sys/X11/bin/</i> path:
+<pre class="code">
+box# export PATH=$PATH:/mnt/C/sys/X11/bin/
+</pre>
+<i>LD_LIBRARY_PATH</i> must (among others) contain the <i>/mnt/C/sys/X11/lib</i> path:
+<pre class="code">
+box# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/mnt/C/sys/X11/lib/
+</pre>
+<i>DISPLAY</i> environment variable properly set to a display of a machine running xserver:
+<pre class="code">
+box# export DISPLAY=&lt;machine&gt;:&lt;display-number&gt;
+</pre>
+... or in case you are using <a href="http://www.chiark.greenend.org.uk/~sgtatham/putty/">putty</a>, X11 forwarding enabled:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SU1z-cIbY3I/AAAAAAAACZQ/VQNzC3vtbjM/s1600-h/putty-x11-forwarding.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 388px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SU1z-cIbY3I/AAAAAAAACZQ/VQNzC3vtbjM/s400/putty-x11-forwarding.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5282005454516085618" /></a>
+
+<span class="fullpost">
+<h3>Build procedure</h3>
+First we have to initialize the package timestamp.
+<pre class="code">
+dev# cd /mnt/C
+dev# ./filopack.sh --init xterm-237 
+Configuration file .filopack/.config file found and used
+Timestamp written to file .filopack/xterm-237.ts
+</pre>
+Now we can download and extract the source.
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="ftp://invisible-island.net/xterm/xterm-237.tgz">ftp://invisible-island.net/xterm/xterm-237.tgz</a>
+...
+Length: 860,424 (unauthoritative)
+
+100%[==========================================================>] 860,424       14.59K/s    ETA 00:00
+
+14:18:14 (17.14 KB/s) - `xterm-237.tgz' saved [860424]
+
+dev# tar xzvf xterm-237.tgz 
+...
+dev# cd xterm-237
+</pre>
+We configure the build in order to have access to XOrg header files and libraries:
+<pre class="code">
+dev#  ./configure --x-includes=/mnt/C/sys/X11/include/ --x-libraries=/mnt/C/sys/X11/lib/ --prefix=/mnt/C/sys/X11
+...
+</pre>
+... and make and install the source:
+<pre class="code">
+dev# make
+...
+dev# make install
+...
+</pre>
+We can test the installation:
+<pre class="code">
+dev# /mnt/C/sys/X11/bin/xterm
+Warning: This program is an suid-root program or is being run by the root user.
+The full text of the error or warning message cannot be safely formatted
+in this environment. You may get a more descriptive message by running the
+program as a non-root user or by removing the suid bit on the executable.
+/mnt/C/sys/X11/bin/xterm Xt error: Can't open display: %s
+/mnt/C/sys/X11/bin/xterm:  DISPLAY is not set
+</pre>
+Oops, I forgot to set the display variable on the mirror machine. Let's do it now (note that the IP address 192.168.2.1 is specific to my network configuration):
+<pre class="code">
+dev# export DISPLAY=192.168.2.1:0
+dev# /mnt/C/sys/X11/bin/xterm
+xterm: Error 18, errno 2: No such file or directory
+Reason: spawn: open() failed on ptsname
+</pre>
+It seems there is still some error. Let's investigate it with <i>strace</i>:
+<pre class="code">
+dev# strace -f /mnt/C/sys/X11/bin/xterm 2&gt; strace.txt
+
+&lt;Ctrl-C&gt;
+
+dev# tail -n 120 strace.txt
+[pid  8119] close(8 &lt;unfinished ...&gt;
+[pid  8120] &lt;... setsid resumed&gt; )      = 8120
+[pid  8119] &lt;... close resumed&gt; )       = 0
+[pid  8120] setpgid(0, 0 &lt;unfinished ...&gt;
+[pid  8119] close(5 &lt;unfinished ...&gt;
+[pid  8120] &lt;... setpgid resumed&gt; )     = -1 EPERM (Operation not permitted)
+[pid  8119] &lt;... close resumed&gt; )       = 0
+[pid  8120] ioctl(4, TIOCSPTLCK &lt;unfinished ...&gt;
+[pid  8119] read(7,  &lt;unfinished ...&gt;
+[pid  8120] &lt;... ioctl resumed&gt; , [0])  = 0
+[pid  8120] ioctl(4, SNDCTL_TMR_TIMEBASE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
+[pid  8120] ioctl(4, TIOCGPTN, [2])     = 0
+[pid  8120] open(<b>"/dev/pts/2"</b>, O_RDWR)  = -1 ENOENT (No such file or directory)
+[pid  8120] write(2, "xterm", 5xterm)        = 5
+[pid  8120] write(2, ": Error ", 8: Error )     = 8
+[pid  8120] write(2, "18", 218)           = 2
+[pid  8120] write(2, ", errno ", 8, errno )     = 8
+[pid  8120] write(2, "2", 12)            = 1
+[pid  8120] write(2, ": ", 2: )           = 2
+[pid  8120] write(2, "No such file or directory", 25No such file or directory) = 25
+[pid  8120] write(2, "\n", 1
+)           = 1
+[pid  8120] write(2, "Reason: ", 8Reason: )     = 8
+[pid  8120] write(2, "<b>spawn: open() failed on ptsname</b>", 31spawn: open() failed on ptsname) = 31
+[pid  8120] write(2, "\n", 1
+)           = 1
+[pid  8120] ioctl(4, TCFLSH, 0x1)       = 0
+[pid  8120] chown("/dev/pts/2", 0, 0)   = -1 ENOENT (No such file or directory)
+[pid  8120] chmod("/dev/pts/2", 0666)   = -1 ENOENT (No such file or directory)
+[pid  8120] close(4)                    = 0
+[pid  8120] munmap(0xb7c10000, 33608)   = 0
+[pid  8120] munmap(0xb7c0b000, 17560)   = 0
+[pid  8120] _exit(18)                   = ?
+Process 8120 detached
+&lt;... read resumed> "", 1048)            = 0
+--- SIGCHLD (Child exited) @ 0 (0) ---
+...
+</pre>
+xterm is unable to open the pseudo terminal device, it should be OK when deployed to the box (there is no full device mapping on my mirror system; it is just chroot-ed to some sub-directory of hosting system).
+<br/>
+<br/>
+Let's create the package:
+<pre class="code">
+dev# ./filopack.sh --pack xterm-237
+Configuration file .filopack/.config file found and used
+-rw-r--r-- root/root      1381 2008-12-20 14:27:33 sys/X11/share/pixmaps/xterm-color_32x32.xpm
+-rw-r--r-- root/root      2710 2008-12-20 14:27:33 sys/X11/share/pixmaps/xterm-color_48x48.xpm
+-rw-r--r-- root/root      2110 2008-12-20 14:27:33 sys/X11/share/pixmaps/xterm_32x32.xpm
+-rw-r--r-- root/root      2586 2008-12-20 14:27:33 sys/X11/share/pixmaps/xterm_48x48.xpm
+-rw-r--r-- root/root    174641 2008-12-20 14:27:32 sys/X11/man/man1/xterm.1
+-rw-r--r-- root/root      2678 2008-12-20 14:27:33 sys/X11/man/man1/resize.1
+-rw-r--r-- root/root      2967 2008-12-20 14:27:33 sys/X11/man/man1/uxterm.1
+-rw-r--r-- root/root      3188 2008-12-20 14:27:33 sys/X11/man/man1/koi8rxterm.1
+-rw-r--r-- root/root      6853 2008-12-20 14:27:33 sys/X11/lib/X11/app-defaults/XTerm
+-rw-r--r-- root/root      4324 2008-12-20 14:27:33 sys/X11/lib/X11/app-defaults/XTerm-color
+-rw-r--r-- root/root      2109 2008-12-20 14:27:33 sys/X11/lib/X11/app-defaults/UXTerm
+-rw-r--r-- root/root       747 2008-12-20 14:27:33 sys/X11/lib/X11/app-defaults/KOI8RXTerm
+-rwxr-xr-x root/root    334759 2008-12-20 14:27:32 sys/X11/bin/xterm
+-rwxr-xr-x root/root     11157 2008-12-20 14:27:32 sys/X11/bin/resize
+-rwxr-xr-x root/root      2088 2008-12-20 14:27:32 sys/X11/bin/uxterm
+-rwxr-xr-x root/root      2163 2008-12-20 14:27:32 sys/X11/bin/koi8rxterm
+</pre>
+... and deploy the package to the box:
+<pre class="code">
+dev# ./filopack.sh --upload xterm-237
+Configuration file .filopack/.config file found and used
+Sure to upload xterm-237 to root@storage:/mnt/C (y/n)?y
+root@storage's password:
+root@storage's password:
+</pre>
+Now on the box, we can install it:
+<pre class="code">
+box# [root@storage C]# ./filopack.sh --install xterm-237
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Module xterm-237 not found in package list - use 'tar.bz2' extension
+Sure to unpack xterm-237 locally at /mnt/C (y/n)?y
+sys/X11/share/pixmaps/xterm-color_32x32.xpm
+sys/X11/share/pixmaps/xterm-color_48x48.xpm
+sys/X11/share/pixmaps/xterm_32x32.xpm
+sys/X11/share/pixmaps/xterm_48x48.xpm
+sys/X11/man/man1/xterm.1
+sys/X11/man/man1/resize.1
+sys/X11/man/man1/uxterm.1
+sys/X11/man/man1/koi8rxterm.1
+sys/X11/lib/X11/app-defaults/XTerm
+sys/X11/lib/X11/app-defaults/XTerm-color
+sys/X11/lib/X11/app-defaults/UXTerm
+sys/X11/lib/X11/app-defaults/KOI8RXTerm
+sys/X11/bin/xterm
+sys/X11/bin/resize
+sys/X11/bin/uxterm
+sys/X11/bin/koi8rxterm
+</pre>
+And test the installation:
+<pre class="code">
+box# xterm
+Cannot chown /dev/ttyp4 to 0,0: Read-only file system
+Cannot chmod /dev/ttyp4 to 620 currently 666: Read-only file system
+Cannot chown /dev/ttyp4 to 0,0: Read-only file system
+</pre>
+The problem here is that xterm is trying to change the rights for the terminal device it is using (<i>/dev/ttyp4</i> in this case) in order to prevent a read access of an unauthorized person (octal value <i>620</i> means that only root can read and write the terminal and users from the same group can just write). 
+However, since the file system is read-only the <i>chmod</i> operation does not succeed and so the terminal device stays readable for everyone. 
+<br/>
+I was dealing with the same issue during the <a href="http://filodej.blogspot.com/2008/11/wmu-6500fs-dropbear-052.html">dropbear build</a>.
+<br/>
+<br/>
+Anyway, in case you are using the box on a trusted network with no one "sniffing around" and have it properly secured from the outside world then the warning should not mean any harm. Maybe it could be solved by a change in configuration (or by a slight change in source code), but I am not going to solve it now.
+<br/>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SU1tG0tPC3I/AAAAAAAACZA/u036CfT8oIs/s1600-h/xterm-237.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 285px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SU1tG0tPC3I/AAAAAAAACZA/u036CfT8oIs/s400/xterm-237.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5281997901970475890" /></a>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-6341520901231233295?l=filodej.blogspot.com' alt='' /></div>

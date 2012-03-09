@@ -1,0 +1,507 @@
+--- 
+name: wmu-6500fs-deluge-torrent-part-i
+layout: post
+time: 2008-07-24 14:06:00 +02:00
+title: WMU-6500FS - Deluge torrent (part I)
+---
+<b>Info sources:</b>
+<a href="http://deluge-torrent.org/">[Home page]</a>
+<br/>
+<br/>
+<h3>Overview</h3>
+The deluge torrent client is first real X application (and the first 
+application implemented in c++) I am trying to build on the WMU box. 
+Thus it is by far the hardest puzzle I had to solve so far. I learned a lot along the way and so I would like to share it step by step with you.
+<br/>
+Whole build process is so complicated for me, that I have not finished it yet <i>(Update: it is finished now 8-) )</i> and so I am going to organize this post as series of three (hopefully there will be no need for more ;) parts. Also the deluge version was changing during my mission so the series will reflect these changes. It is not because I want to force readers (possibly trying to build the deluge as well) to go the exact same path, the point is to show all the problems (along with solutions or workarounds) I have experienced, since they can emerge in another situations as well.
+<br/>
+<br/>
+<a href="http://filodej.blogspot.com/2008/07/wmu-6500fs-deluge-torrent-part-i.html">This part</a> contains the initial build process and deployment. 
+<a href="http://filodej.blogspot.com/2008/07/wmu-6500fs-deluge-torrent-part-ii.html">Next part</a> will deal with the local and remote debugging and (hopefully) the <a href="http://filodej.blogspot.com/2008/08/wmu-6500fs-deluge-torrent-part-iii.html">last one</a> will describe the solution of the problems found during the debugging sessions. I am also going to prepare a post with build sequence of libraries the deluge directly or indirectly depends on.
+<br/>
+
+<span class="fullpost">
+
+<h3>Compilation:</h3>
+I have started with the 0.5.9.1 version (the newest one at the time).
+<pre class="code">
+dev# wget <a href="http://download.deluge-torrent.org/source/0.5.9.1/deluge-0.5.9.1.tar.gz">http://download.deluge-torrent.org/source/0.5.9.1/deluge-0.5.9.1.tar.gz</a>
+dev# tar xzvf deluge-0.5.9.1.tar.gz
+dev# export CFLAGS=-I/mnt/C/sys/include/boost-1_35
+dev# python setup.py build
+...
+Error 1
+libtorrent/src/session_impl.cpp:829:   instantiated from here
+libtorrent/include/libtorrent/socket.hpp:181: error: `IPV6_V6ONLY' undeclared
+</pre>
+It seems the uClibc (at least 0.9.27 version) lacks the IPV6_V6ONLY definition. 
+See for example <a href="http://mailman.videolan.org/pipermail/vlc-devel/2006-February/022277.html">this message</a> 
+for more info about this (missing) define.
+<br/>
+As a quick and dirty fix I just define the identifier locally:
+<pre class="code">
+dev# nano libtorrent/include/libtorrent/socket.hpp
+</pre>
+... and add following (the actual value got from debian <i>/usr/include/bits/in.h</i> file) 
+just after the include section:
+<pre class="code">
+#define IPV6_V6ONLY             26
+</pre>
+
+<h3>Static linkage:</h3>
+Now we can try the build again:
+<pre class="code">
+dev# python setup.py build
+...
+/usr/bin/ld: cannot find -lboost_filesystem-mt
+</pre>
+Static linker is unable to find the boost_filesystem-mt library. At first we have to make sure 
+that linker flags <i>LDFLAGS</i> are pointing to proper directory (<i>sys/lib</i>):
+<pre class="code">
+dev# echo $LDFLAGS
+
+dev# export LDFLAGS=-L/mnt/C/sys/lib
+</pre>
+... but the problem still persists. The problem is that the boost library names are more specific 
+(contain boost version and compiler version). 
+In README Additional notes is the following:
+<blockquote>
+1) On some distributions, boost libraries are renamed to have "-mt" at the end
+(boost_thread_mt instead of boost_thread, for example), the "mt"  indicating
+"multithreaded". In some cases it appears the distros lack symlinks to connect
+things. The solution is to either add symlinks from the short names to those
+with "-mt", or to alter setup.py to look for the "-mt" versions.
+</blockquote>
+I do not know whether there should be libboost_*-mt.so symlinks by default, maybe I have not 
+configured boost library properly, as a quick fix I decided to create the links manually:
+<pre class="code">
+dev# cd /mnt/C/sys/lib
+dev# for i in `ls ./libboost_*-gcc33-mt-1_35.so.1.35.0`; do ln -s $i ${i/%-gcc33-mt-1_35.so.1.35.0/-mt.so}; done
+</pre>
+Now we have another link error:
+<pre class="code">
+dev# python setup.py build
+...
+can't resolve symbol 'get_nprocs'
+</pre>
+It seems that uClibc does not implement <a>get_nprocs</a> function. 
+Following text from <a href="http://www.avrfreaks.net/index.php?name=PNphpBB2&file=viewtopic&p=438259">this forum</a> 
+describes the workaround:
+<blockquote>
+I grep'ed the boost source tree for get_nprocs and found the only instance of it in thread.cpp. 
+I found out that this function returns the number of processors and is really not needed in my case. 
+So instead of having "return get_nprocs()", I changed it to "return 1". While I think this should 
+not break anything, I thought I should still tell you. 
+</blockquote>
+So in file <i>boost_1_35_0/libs/thread/src/pthread/thread.cpp</i> I have replaced
+<pre class="code">
+    return get_nprocs();
+</pre>
+with:
+<pre class="code">
+    return 1;
+</pre>
+in short:
+<pre class="code">
+dev# cd /usr/local/src/boost_1_35_0
+dev# sed -i 's/return get_nprocs();/return 1;/g' libs/thread/src/pthread/thread.cpp
+</pre>
+... and rebuilt the boost library.
+<pre class="code">
+dev# make
+...
+...updating 3 targets...
+...
+...updated 3 targets...
+dev# make install
+...
+...updating 6 targets...
+common.copy /mnt/C/sys/lib/libboost_thread-gcc33-mt-1_35.so.1.35.0
+ln-UNIX /mnt/C/sys/lib/libboost_thread-gcc33-mt-1_35.so
+common.copy /mnt/C/sys/lib/libboost_wave-gcc33-mt-1_35.so.1.35.0
+ln-UNIX /mnt/C/sys/lib/libboost_wave-gcc33-mt-1_35.so
+common.hard-link /mnt/C/sys/lib/libboost_thread-gcc33-mt.so
+common.hard-link /mnt/C/sys/lib/libboost_wave-gcc33-mt.so
+...updated 6 targets...
+</pre>
+... now the build finished successfully, we are ready to install:
+<pre class="code">
+dev# python setup.py install --prefix=/mnt/C/sys/X11
+</pre>
+In order to correctly deploy on the box, one additional hack was needed 
+(touch everything containing deluge in path so it is included in the <i>filopack</i> archive):
+<pre class="code">
+dev# find /mnt/C/sys -path "*deluge*" -type f -exec touch {} \;
+</pre>
+We have the first step done. Do not know yet what is ahead of us ;-) 
+<br/>
+<h3>Dynamic linkage:</h3>
+Now we can try to run the application:
+<pre class="code">
+dev# deluge
+...
+/usr/bin/python: can't resolve symbol '_ZN5boost6system19get_system_categoryEv'
+</pre>
+It seems there is some symbol expected by deluge app but missing in the boost libraries.
+<br/>
+With the <a href="http://linux.about.com/library/cmd/blcmdl1_nm.htm">nm command</a> we find out 
+whether the symbol is in any boost library:
+<pre class="code">
+dev# nm -A -D /mnt/C/sys/lib/libboost_* | grep "T _ZN5boost6system19get_system_categoryEv"
+/mnt/C/sys/lib/libboost_system-gcc33-mt-1_35.so:00001d28 T _ZN5boost6system19get_system_categoryEv
+/mnt/C/sys/lib/libboost_system-gcc33-mt-1_35.so.1.35.0:00001d28 T _ZN5boost6system19get_system_categoryEv
+/mnt/C/sys/lib/libboost_system-gcc33-mt.so:00001d28 T _ZN5boost6system19get_system_categoryEv
+/mnt/C/sys/lib/libboost_system-mt.so:00001d28 T _ZN5boost6system19get_system_categoryEv
+</pre>
+Make sure that the symbol is needed from the deluge_core library:
+<pre class="code">
+dev# nm /mnt/C/sys/lib/python2.5/site-packages/deluge/deluge_core.so | grep _ZN5boost6system19get_system_categoryEv
+         U _ZN5boost6system19get_system_categoryEv
+</pre>
+We can test whether all the libraries the deluge_core depends on are properly found by the dynamic linker:
+<pre class="code">
+dev# ldd /mnt/C/sys/lib/python2.5/site-packages/deluge/deluge_core.so
+        libboost_filesystem-gcc33-mt-1_35.so.1.35.0 => /usr/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_date_time-gcc33-mt-1_35.so.1.35.0 => /usr/lib/libboost_date_time-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_thread-gcc33-mt-1_35.so.1.35.0 => /usr/lib/libboost_thread-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        ...
+        libboost_system-gcc33-mt-1_35.so.1.35.0 => /usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        ...
+</pre>
+I am not sure what exactly is going on here, I would be glad if anybody shed some light on it,
+as a workaround the <a href="http://en.wikipedia.org/wiki/Dynamic_linker#LD_PRELOAD">LD_PRELOAD</a> works for me:
+<pre class="code">
+dev# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 deluge
+Traceback (most recent call last):
+  File "/usr/bin/deluge", line 46, in <module>
+    import deluge._dbus as dbus
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge/_dbus.py", line 32, in <module>
+    from dbus import Interface, SessionBus, version
+ImportError: No module named dbus
+</pre>
+We have to install <i>dbus</i> before we proceed 
+(see <a href="http://timjoh.com/no-module-named-_dbus-in-deluge-torrent/">this post</a>)...
+<br/>
+Now we can try it again:
+<pre class="code">
+dev# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 deluge
+process 16385: D-Bus library appears to be incorrectly set up; failed to read machine uuid: Failed to open 
+
+"/mnt/C/sys/X11//var/lib/dbus/machine-id": No such file or directory
+See the manual page for dbus-uuidgen to correct this issue.
+  D-Bus not compiled with backtrace support so unable to print a backtrace
+Aborted
+</pre>
+So far so good, following command seem to solve it:
+<pre class="code">
+dev# sys/X11/bin/dbus-uuidgen --ensure
+</pre>
+... but then there is another problem:
+<h3>Crashes:</h3>
+<pre class="code">
+#  LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 deluge
+no existing Deluge session
+
+(deluge:16391): GLib-GIO-CRITICAL **: g_unix_mount_is_system_internal: assertion `mount_entry != NULL' failed
+Segmentation fault
+</pre>
+
+The <i>g_unix_mount_is_system_internal</i> function (in <i>glib-2.17.2/gio/gunixmounts.c</i> file) 
+asserted since the given mount_entry was NULL.
+<pre class="code">
+gboolean
+g_unix_mount_is_system_internal (GUnixMountEntry *mount_entry)
+{
+  g_return_val_if_fail (mount_entry != NULL, FALSE);
+
+  return mount_entry->is_system_internal;
+}
+</pre>
+Look at the places where the function is called. We find the <i>g_unix_mount_guess_should_display</i>
+function in the same file.
+<pre class="code">
+gboolean
+g_unix_mount_guess_should_display (GUnixMountEntry *mount_entry)
+{
+  const char *mount_path;
+
+  /* Never display internal mountpoints */
+  if (g_unix_mount_is_system_internal (mount_entry))
+    return FALSE;
+
+  /* Only display things in /media (which are generally user mountable)
+     and home dir (fuse stuff) */
+  mount_path = <b>mount_entry->mount_path</b>;
+</pre>
+It is apperent that this function calls the <i>g_unix_mount_is_system_internal</i>
+it asserts but returns FALSE and so the <i>g_unix_mount_guess_should_display</i>
+immediatelly crashes.
+<br/>
+Now we can look at the caller's code, to the <i>_g_unix_mount_new</i> function in
+the <i>glib-2.17.2/gio/gunixmount.c</i>:
+<pre class="code">
+GUnixMount *
+_g_unix_mount_new (GVolumeMonitor  *volume_monitor,
+                   GUnixMountEntry *mount_entry,
+                   GUnixVolume     *volume)
+{
+  GUnixMount *mount;
+
+  /* No volume for mount: Ignore internal things */
+  if (volume == NULL && !g_unix_mount_guess_should_display (mount_entry) )
+    return NULL;
+  ...
+</pre>
+I do not know what are the exact contract of those functions,
+from the code it seems that all three functions share the precondition 
+that the mount_entry cannot be NULL.  
+<br />
+I decided not to go up on the call stack and look for the actual cause of the NULL
+mount_entry, it can very well be the fact that I am running on the chroot-ed environment. 
+As a quick fix I modify this function as follows:
+<pre class="code">
+dev# nano /usr/local/src/glib-2.17.2/gio/gunixmount.c
+  if (volume == NULL && ( <b>!mount_entry ||</b> !g_unix_mount_guess_should_display (mount_entry) ) )
+    return NULL;
+dev# make 
+dev# make install
+</pre>
+<pre class="code">
+Ok, let's try it again:
+dev# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 /mnt/C/sys/X11/bin/deluge
+no existing Deluge session
+Traceback (most recent call last):
+  File "/mnt/C/sys/X11/bin/deluge", line 130, in <module>
+    deluge.wizard.WizardGTK()
+  File "/mnt/C/sys/X11/lib/python2.5/site-packages/deluge/wizard.py", line 58, in __init__
+    self.window.set_icon(deluge.common.get_logo(18))
+  File "/mnt/C/sys/X11/lib/python2.5/site-packages/deluge/common.py", line 154, in get_logo
+    size, size)
+gobject.GError: Unrecognized image file format
+</pre>
+When we look to the <i>common.py</i> we see there are two icon variants: svg and png.
+When we change .svg to .png everything works. You can open the file in a text editor:
+<pre class="code">
+dev# nano /mnt/C/sys/X11/lib/python2.5/site-packages/deluge/common.py
+        return gtk.gdk.pixbuf_new_from_file_at_size(get_pixmap("deluge.png"), \
+            size, size)
+</pre>
+... or simply call the following command:
+<pre class="code">
+dev# sed -i 's/deluge.svg/deluge.png/g' /mnt/C/sys/X11/lib/python2.5/site-packages/deluge/common.py
+</pre>
+Now we have made a progress, when we launch deluge the we have to <i>setup the preferences</i>.
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SIhz0DqDVfI/AAAAAAAABmU/_3HIOEcedW0/s1600-h/deluge-setup.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SIhz0DqDVfI/AAAAAAAABmU/_3HIOEcedW0/s400/deluge-setup.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5226554705735538162" /></a>
+<br/>
+But when we proceed, there is another error:
+<pre class="code">
+...
+no existing Deluge session
+Starting new Deluge session...
+deluge_core; using libtorrent 0.13.0.0. Compiled with NDEBUG.
+Applying preferences
+Scanning plugin dir /mnt/C/sys/X11/share/deluge/plugins
+Initialising plugin TorrentPeers
+...
+Initialising plugin SpeedLimiter
+Applying preferences
+Starting DHT...
+Aborted
+</pre>
+When we use <a href="http://linux.die.net/man/1/strace">strace tool</a> to monitor system calls 
+we get the following:
+<pre class="code">
+dev# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 strace deluge
+...
+close(11)                               = 0
+write(1, "Applying preferences\n", 21Applying preferences
+)  = 21
+write(1, "Starting DHT...\n", 16Starting DHT...
+)       = 16
+open("/root/.config/deluge/dht.state", O_RDONLY) = -1 ENOENT (No such file or directory)
+rt_sigprocmask(SIG_UNBLOCK, [ABRT], NULL, 8) = 0
+kill(31503, SIGABRT)                    = 0
+--- SIGABRT (Aborted) @ 0 (0) ---
++++ killed by SIGABRT +++
+Process 31503 detached
+</pre>
+It seems the abort could have some relation with missing <i>dht.state</i> file. 
+Let's try to debug it:
+<pre class="code">
+dev# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 gdb python
+GNU gdb 6.3
+...
+(gdb) run /mnt/C/sys/X11/bin/deluge
+Starting program: /mnt/C/sys/bin/python /mnt/C/sys/X11/bin/deluge
+[Thread debugging using libthread_db enabled]
+[New Thread 1024 (LWP 7763)]
+Could not open /proc/7763/status
+</pre>
+It seems it is not so easy to run gdb on chroot-ed system, I have tried mess up with 
+manual <i>/proc</i> "dummy" file creation but had no success.
+<br/>
+Another possibility is to debug directly on the box. Before that we have to upload it.
+<h3>Deployment to the box:</h3>
+<br/>
+After the upload routine some more problems emerged:
+<pre class="code">
+box# deluge
+Traceback (most recent call last):
+  File "/mnt/C/sys/X11/bin/deluge", line 43, in <module>
+    import deluge
+  File "/mnt/C/sys/X11/lib/python2.5/site-packages/deluge/__init__.py", line 34, in <module>
+ImportError: No module named pygtk
+</pre>
+Ok, I forgot to deploy <i>pygtk</i>. Done.
+<pre class="code">
+box# deluge
+Traceback (most recent call last):
+  File "/mnt/C/sys/X11/bin/deluge", line 45, in <module>
+    import deluge.core
+  File "/usr/lib/python2.5/site-packages/deluge/core.py", line 59, in <module>
+    import deluge_core
+ImportError: File not found
+</pre>
+This one is more interesting, we have to find out what is going on:
+<pre class="code">
+box# strace python
+...
+import deluge.deluge_core
+...
+open("./libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+open("/mnt/C/sys/lib//libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+open("/mnt/C/sys/X11/lib//libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+open("/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+open("/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+open("/usr/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0", O_RDONLY) = -1 ENOENT (No such file or directory)
+close(3)                                = 0
+write(2, "Traceback (most recent call last"..., 35Traceback (most recent call last):
+) = 35
+...
+</pre>
+Ok, it seems we forgot to deploy the boost libraries. Done.
+<pre class="code">
+box# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 deluge
+no existing Deluge session
+
+(deluge:19324): libglade-WARNING **: could not find glade file '/usr/share/deluge/glade/wizard.glade'
+Traceback (most recent call last):
+  File "/mnt/C/sys/X11/bin/deluge", line 130, in <module>
+    deluge.wizard.WizardGTK()
+  File "/usr/lib/python2.5/site-packages/deluge/wizard.py", line 50, in __init__
+    , domain='deluge')
+RuntimeError: could not create GladeXML object
+</pre>
+We have to create a symlink in <i>/usr/share</i> (since it is just memory filesystem,
+in order to make it permanent we have to make symlink anytime the box boots up). 
+<br/>
+For now just call following command, later on we can modify an config file 
+(e.g. <i>/mnt/C/sys/etc/rc-local</i>).
+<pre class="code">
+box# ln -s /mnt/C/sys/share/deluge /usr/share/deluge
+</pre>
+When we try to launch it again, we get known "Unrecognized image file format" message.
+<pre class="code">
+box# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 deluge
+no existing Deluge session
+Traceback (most recent call last):
+  File "/mnt/C/sys/X11/bin/deluge", line 130, in <module>
+    deluge.wizard.WizardGTK()
+  File "/mnt/C/sys/X11/lib/python2.5/site-packages/deluge/wizard.py", line 58, in __init__
+    self.window.set_icon(deluge.common.get_logo(18))
+  File "/mnt/C/sys/X11/lib/python2.5/site-packages/deluge/common.py", line 154, in get_logo
+    size, size)
+gobject.GError: Unrecognized image file format
+</pre>
+<a href="http://en.wikipedia.org/wiki/Sed">Stream editor</a> helps us to fix it:
+<pre class="code">
+box# sed -i 's/deluge.svg/deluge.png/g' /mnt/C/sys/X11/lib/python2.5/site-packages/deluge/common.py
+</pre>
+Now when run it under strace again, and it seems that we got on the <b>box#</b> system as far as we 
+were on the <b>dev#</b> system:
+<pre class="code">
+box# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 strace deluge
+...
+close(11)                               = 0
+write(1, "Applying preferences\n", 21Applying preferences
+)  = 21
+write(1, "Starting DHT...\n", 16Starting DHT...
+)       = 16
+open("/root/.config/deluge/dht.state", O_RDONLY) = -1 ENOENT (No such file or directory)
+rt_sigprocmask(SIG_UNBLOCK, [ABRT], NULL, 8) = 0
+kill(31503, SIGABRT)                    = 0
+--- SIGABRT (Aborted) @ 0 (0) ---
++++ killed by SIGABRT +++
+Process 31503 detached
+</pre>
+<h3>Local debugging:</h3>
+Now we are ready to try the gdb debugger:
+<pre class="code">
+box# LD_PRELOAD=/usr/lib/libboost_system-gcc33-mt-1_35.so.1.35.0 gdb python
+...
+(gdb) run /mnt/C/sys/X11/bin/deluge
+Starting program: /bin/python /mnt/C/sys/X11/bin/deluge
+...
+no existing Deluge session
+Starting new Deluge session...
+deluge_core; using libtorrent 0.13.0.0. Compiled with NDEBUG.
+
+Program received signal SIG32, Real-time event 32.
+0x4019cb64 in __rt_sigsuspend () from /lib/libc.so.0
+(gdb) Quit
+(gdb) where
+#0  0x4019cb64 in __rt_sigsuspend () from /lib/libc.so.0
+#1  0x4019cb9b in sigsuspend () from /lib/libc.so.0
+#2  0x40139cf9 in __pthread_wait_for_restart_signal () from /lib/libpthread.so.0
+#3  0x401396bd in pthread_create () from /lib/libpthread.so.0
+#4  0x416c9f26 in boost::thread::start_thread () from /mnt/C/sys/lib//libboost_thread-gcc33-mt-1_35.so.1.35.0
+#5  0x415d68c8 in disk_io_thread (this=0x821acc8, block_size=-4) at thread.hpp:151
+...
+</pre>
+Sig32 event is not really what we are looking for (some info about it can be 
+seen in <a href="http://www.mail-archive.com/bug-gdb@gnu.org/msg01102.html">this discussion</a>),
+we wait for the ABORT signal and so can continue:
+<pre class="code">
+(gdb) cont
+Continuing.
+Program received signal SIG32, Real-time event 32.
+0x4019cb64 in __rt_sigsuspend () from /lib/libc.so.0
+(gdb) cont
+Continuing.
+...
+Applying preferences
+Scanning plugin dir /usr/share/deluge/plugins
+...
+Starting DHT...
+
+Program received signal SIGABRT, Aborted.
+0x4019b1c4 in kill () from /lib/libc.so.0
+</pre>
+So let's look where the problem is:
+<pre class="code">
+(gdb) where
+#0  0x4019b1c4 in kill () from /lib/libc.so.0
+#1  0x4013af69 in pthread_kill () from /lib/libpthread.so.0
+#2  0x4013b37f in raise () from /lib/libpthread.so.0
+#3  0x40194cc7 in abort () from /lib/libc.so.0
+#4  0x4027140f in __cxa_call_unexpected () from /mnt/C/sys/lib//libstdc++.so.5
+#5  0x40271439 in std::terminate () from /mnt/C/sys/lib//libstdc++.so.5
+#6  0x40271560 in __cxa_throw () from /mnt/C/sys/lib//libstdc++.so.5
+#7  0x41638218 in libtorrent::bdecode&lt;std::istream_iterator&lt;char, char, 
+std::char_traits&lt;char&gt;, int&gt; &gt; (end= {&lt;std::iterator&lt;std::input_iterator_tag, char, int, char const*, char 
+const&&gt;&gt; = {&lt;No data fields&gt;}, _M_stream = 0x8d188, _M_value = -124 
+'\204', _M_ok = 88}) at bencode.hpp:332
+#8  0x41632d47 in torrent_start_DHT (self=0x0, args=0x41a6d44c) at basic_ios.h:110
+#9  0x4005d122 in PyCFunction_Call (func=0x412712ac, arg=0x41a6d44c, kw=0x6) at Objects/methodobject.c:108
+#10 0x400a2661 in call_function (pp_stack=0xbfffec5c, oparg=0) at Python/ceval.c:3573
+...
+</pre>
+So we can see an exception thrown in <i>libtorrent::bdecode</i> which causes the immediate
+process termination. As far as I know it can be caused either by not-catching the exception or by a double throw.
+<a href="http://gcc.gnu.org/ml/gcc-help/2002-08/msg00072.html">Here</a> and <a href="http://www.itk.org/Bug/view.php?id=5574">here</a> 
+are examples when one experiences the same.
+<br/>
+<br/>
+This is enough for today, we shall look at it in the next part. Since the local debugging is reaaaallyyyyy sloooow and several times I have even run out of swap space, in <a href="http://filodej.blogspot.com/2008/07/wmu-6500fs-deluge-torrent-part-ii.html">next part</a> we also look at the remote debugging.
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-5499650959291922343?l=filodej.blogspot.com' alt='' /></div>

@@ -1,0 +1,249 @@
+--- 
+name: port-forwarding-remote-desktop
+layout: post
+time: 2009-03-26 20:37:00 +01:00
+title: Port forwarding & Remote desktop connection (updated)
+---
+<h3>Overview</h3>
+
+In the company I am working as a developer we have relatively flexible rules how to organize working time (some workdays we can work from home assuming we are online and easily accessible by other team members). On the other side there are strict IT rules and firewall settings complicating the remote access.<br/> 
+The e-mail access and even the remote desktop access is officially possible just via a web portal provided that you withstand a tedious login process and unbearable refresh rate (not speaking of an odd interference with skype).
+<br/>
+Thus we faced a challenge how to overcome the strict firewall settings and open up a direct (and swift) remote desktop access. Finally we succeeded, and in this post I am going to share the method with you, having possibly similar problems.
+
+<h3>Info sources</h3>
+<a href="http://theillustratednetwork.mvps.org/Ssh/RemoteDesktopSSH.html">[Secure remote access of a private network]</a><br/>
+<a href="http://theillustratednetwork.mvps.org/RemoteDesktop/RemoteDesktopSetupandTroubleshooting.html#Port_forwarding">[Port forwarding for Remote Desktop]</a><br/>
+<a href="http://unixhelp.ed.ac.uk/CGI/man-cgi?ssh+1">[Unix man pages: ssh(1)]</a><br/>
+<a href="http://sig9.com/articles/concurrent-remote-desktop">[Concurrent Remote Desktop Sessions in Windows XP SP2]</a><br/>
+<a href="http://www.miscdebris.net/blog/2007/06/01/speed-up-ssh-x11-forwarding">[Speed up SSH X11 forwarding]</a><br/>
+<a href="http://staff.washington.edu/corey/fw/ssh-port-forwarding.html">[SSH port forwarding]</a>
+<h3>Configuration</h3>
+At home I have a PC workstation with Windows XP and laptop with Linux Ubuntu 8.04, both computers behind 
+the Linksys router WRT54GL with DD-WRT firmware version 2.4. 
+<br/>
+In the office I have a PC workstation with Windows XP behind a firewall. The firewall is administered 
+by the IT department (residing abroad) and developers have no way of configuring it. 
+<br/>
+The office firewall is configured that there are no incoming ports open and there are just a few outgoing:
+80 (http), 119 (nntp), 1863 (msnp) and maybe few others I do not know of.
+<br/>
+The goal is to find a way how to enable Remote desktop connection across the Internet in both directions.
+<br/>
+We decided to use SSH port forwarding feature. Since the port 22 standardly used for SSH access is not forwarded 
+on the firewall even for outgoing connections we had to use another port - 119 was our choice.
+<br/>
+In following text I use port <span style="color: #009900"><b>119</b></span>, actually it is specific to this 
+specific scenario, given there is another firewall configuration, port selection has to be done correspondingly.
+
+<h3>Homeward connection</h3>
+This direction is a simpler one, since there are at least some ports open on the firewall for outgoing connections.
+<br/>
+<b>We have the following:</b>
+<ul>
+<li>Home internet connection with public IP address</li>
+    <ul><li>as an alternative you can use a dynamic DNS service (like <a href="http://www.dyndns.com/">dynDNS</a> 
+    or similar) but also need a port forwarding for at least port <span style="color: #009900"><b>119</b></span> activated by your ISP</li></ul>
+<li>Home router with SSH access activated, but configured to listen on port <span style="color: #009900"><b>119</b></span>
+    <ul><li>In case you have no router you can have SSH service/daemon (configured for port 
+        <span style="color: #009900"><b>119</b></span>) running directly on your computer</li></ul>
+</li>
+<li>Home PC with OS Windows (XP Professional version, the Home version has a limited remote access) - Terminal services listening standardly on port 
+    <span style="color: #3300ff"><b>3389</b></span>
+</li>
+<li>Home Laptop with OS Linux (Ubuntu Hardy 8.04) - VNC server screen 1 listening on port <span
+    style="color: #cc00ff"><b>5901</b></span>
+</li>
+<li>Office PC with OS Windows XP (not sure if the Professional version is necessary for the Terminal Serveces client) with 
+<a href="http://www.realvnc.com/products/free/4.1/download.html">VNC viewer</a> installed.
+</li>
+</ul>
+
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    Launch SSH client configured with following command line:
+    <br/>
+    <b>ssh.exe -L <span style="color: #ff0000">3391</span>:workstation:<span style="color: #3300ff">3389</span> 
+    -L <span style="color: #ff9900">5951</span>:laptop:<span style="color: #cc00ff">5901</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Forwarding local port <span style="color: #ff0000"><b>3391</b></span> to port <span style="color: #3300ff"><b>3389</b></span> of remote host <i>"workstation"</i></li>
+    <li>Forwarding local port <span style="color: #ff9900"><b>5951</b></span> to port <span style="color: #cc00ff"><b>5901</b></span> of remote host <i>"laptop"</i></li>
+    </ul>
+  </li>
+  <li>
+  In order to connect to the Windows machine launch the Terminal services client: <br />
+  <b>mstsc.exe /v:localhost:<span style="color: #ff0000">3391</span></b>
+  </li>
+  <li>
+  In order to connect to the Linux machine launch the VNC viewer: <br />
+  <b>vncviewer.exe localhost:<span style="color: #ff9900">5951</span></b>
+  </li>
+</ol>
+And that's it. Following schema demonstrates the whole situation:
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SKYeOYTLpUI/AAAAAAAABpA/uXxXY1sCIZ8/s1600-h/RemoteDesktop2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SKYeOYTLpUI/AAAAAAAABpA/uXxXY1sCIZ8/s400/RemoteDesktop2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5234904849254688066" /></a>
+<br/>
+This was a simpler direction (according to the firewall configuration). The more complicated one follows...
+
+<span class="fullpost">
+
+<h3>Connection towards Office</h3>
+This direction is a more intricate one, simply because we are trying to go "against" the firewall, it is configured to disallow any 
+incoming connection. So if we cannot connect to the office computer (sitting behind the firewall) what about turning over the problem
+to the previous (already solved) one? We could possibly <i>be contacted</i> by our office computer instead of trying contact it ourself.
+<br />
+But we still need some way to initiate the whole connection process. After all must be at least some how to pass through the firewall.
+If there is such facility, we could use it as our trigger (Surely there is such a facility - a good old e-mail ;-).
+<br />
+<b>Now we have the following:</b>
+<ul>
+<li>Office PC with OS Windows XP (XP Professional version, the Home version has a limited remote access) - Terminal services listening 
+    standardly on port <span style="color: #3300ff"><b>3389</b></span> and Outlook client running with a custom e-mail rule starting the 
+    connection (we can define a rule for specific sender address, subject or body containing some "magic" string etc). 
+    <ul><li>Obviously any other e-mail client (with e-mail rules) can be used. Or it is possible to use another utility running as an OS service
+     - this way it would be possible to contact the computer even when no user was previously logged in.</li></ul>
+</li>
+<li>We still need an internet connection with public IP address or at least <span style="color: #009900"><b>119</b></span> 
+    incomming port forwarding (remember, even when we are connecting to the office - actually our ofice is contacting us ;)</li>
+<li>Home router with SSH access activated, but configured to listen on port <span style="color: #009900"><b>119</b></span>.
+    Also we need to have the Office Workstation's rsa key added to the list of router's <i>Authorized keys</i>.
+</li>
+<li>Home PC with OS Windows XP (not sure if the Professional version is necessary for the Terminal Serveces client). 
+    We can send the initiating e-mail by hand or prepare a script automating the whole connection process 
+    (I am using a python script since it can be used on Linux machine as well).
+</li>
+<li>Home Laptop with OS Linux (Ubuntu Hardy 8.04) - can be used as a Terminal services client as well.
+</li>
+</ul>
+
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    From either <i>workstation</i> or <i>laptop</i> we send an initiating e-mail (containing a "magic" pattern)
+  </li>
+  <li>
+    Outlook client running on the Office Workstation receives the e-mail, recognizes the pattern and initiates the 
+    actual connection with Home router with following command line:
+    <br/>
+    <b>ssh.exe -R <span style="color: #ff0000">3393</span>:localhost:<span style="color: #3300ff">3389</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Use the specified identity file (private key) for RSA authentication (this can be used for all ssh sessions but in this case it is necessary 
+    - we cannot use the interactive password authentication method in this case ;)</li>
+    <li>Forwarding port <span style="color: #ff0000"><b>3391</b></span> of the remote host (Home router) to local port <span style="color: #3300ff"><b>3389</b></span>.</li>
+    </ul>
+  </li>
+  <li>
+    On either <i>workstation</i> or <i>laptop</i> we connect to the router with following command line:
+    <br/>
+      <b>ssh.exe -L <span style="color: #cc00ff">3391</span>:localhost:<span style="color: #ff0000">3393</span> &lt;user&gt;@router</b>
+    <br/>
+    ... which means: 
+    <br/>
+    <ul>
+    <li>Connect to the router (via standard port 22) as a user &lt;user&gt;</li>
+    <li>Forwarding local port <span style="color: #cc00ff"><b>3391</b></span> to router's <span style="color: #ff0000"><b>3393</b></span> port</li>
+    </ul>
+  </li>
+  <li>Establish the remote desktop connection to the Office Workstation.
+    <ul>
+    <li>From Windows: <b>MSTSC.EXE /v:localhost:<span style="color: #cc00ff">3391</span></b></li>
+    <li>From Linux: <b>rdesktop localhost:<span style="color: #cc00ff">3391</span> -u &lt;user&gt; -d &lt;domain&gt; -p -</b></li>
+    </ul>
+  </li>
+</ol>
+
+Following schema demonstrates the whole sequence of events:
+<br/>
+
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SKYdU2Eil9I/AAAAAAAABow/j1RZygzxPfk/s1600-h/RemoteDesktop.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SKYdU2Eil9I/AAAAAAAABow/j1RZygzxPfk/s400/RemoteDesktop.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5234903860813928402" /></a>
+
+<i>Note:</i> not all steps are always necessary. The tunnel between <i>Office Workstation</i> and <i>Home router</i> can sometimes last for several days 
+(while sometimes is spontaneously interrupted - it probably depends on a quality of Internet connection) and so it is not necessary to send 
+the initiating e-mail anytime we want to connect to the office. So usually the first thing I do is to open the 
+SSH connection to the router (<i>step 3</i>), determine whether there is the existing office connection (e.g. via <i>ps</i> command I look at the number of 
+<i>dropbear</i> and <i>sh</i> instances) and if so proceed directly to the <i>step 4</i>.
+<br/>
+<br/>
+<h3>Update - significant simplification</h3>
+<br/>
+At the time I initially wrote this post I did not know why it was not possible to connect to the router's forwarded port from another host. That was why I created actually two tunnels (Office PC -&gt; Router&lt;- Home PC) when I was connecting remotely to the office.
+<br/>
+After some time I have found some <a href="http://staff.washington.edu/corey/fw/ssh-port-forwarding.html">more info</a> in this regard:
+Client side:
+<blockquote><i>
+As a security precaution, modern versions of ssh forbid other computers on the internet from connecting to the forwarded port (...) unless you explicitly allow it with the "ssh -g" flag
+</i></blockquote>
+Server side:
+<blockquote><i>
+If the client is not configured to accept inbound SSH connections, this can be done with remote port forwarding on an outbound connection. (For OpenSSH, note that you may need to set "GatewayPorts yes" in "sshd_config" to achieve on the server what "ssh -g" would do on the client (allow any host to connect to the forwarded port).
+</i></blockquote>
+Then I found some more info indicating that it does not work for DropBear even when properly configured (<a href="http://wl500g.info/showthread.php?t=4389">here</a> and <a href="http://www.infosecwriters.com/text_resources/pdf/ssh_tunneling.pdf">here</a>):
+<blockquote><i>
+The reason that the direct login to remote forwarded port doesn't work is - "dropbear binds remote port forwardings to
+the loopback address. This prevents other remote hosts from connecting to forwarded ports."
+To fix it, you can recompile dropbear for your router.
+</i></blockquote>
+I did not want to rebuild <i>dropbear</i> for my router (I do not even have a build toolchain for it) so I kept trying. Finally I realized that when I explicitly use the actual hostname for my router (<i>router</i> in my configuration) instead of <i>localhost</i> (as used by default) on the remote port forwarding command line, it does the trick:
+<br/>
+So - on the <i>Office PC</i> command line - instead of former:
+<pre class="code">
+ssh.exe -R 3393:localhost:3389 -i .ssh\id_rsa <user>@<home-ip> -p 119 
+</pre>
+Now I am using:
+<pre class="code">
+ssh.exe -R router:3389:localhost:3389 -i .ssh\id_rsa <user>@<home-ip> -p 119 
+</pre>
+... and after this change it is possible to connect to the tunnel not only from the router itself but from any other machine in the network.
+<br/>
+I did not consider possible security implications, after all I am just a simple user in this regard, so it is up to you to decide which approach better fits your needs, please, don't blame me then.
+<br/>
+<br/>
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    From either <i>workstation</i> or <i>laptop</i> we send an initiating e-mail (containing a "magic" pattern)
+  </li>
+  <li>
+    Outlook client running on the Office Workstation receives the e-mail, recognizes the pattern and initiates the actual connection with Home router with following command line:
+    <br/>
+    <b>ssh.exe -R router:<span style="color: #ff0000">3389</span>:localhost:<span style="color: #3300ff">3389</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Use the specified identity file (private key) for RSA authentication (this can be used for all ssh sessions but in this case it is necessary 
+    - we cannot use the interactive password authentication method in this case ;)</li>
+    <li>Forwarding port <span style="color: #ff0000"><b>3389</b></span> of the remote host with hostname <i>router"</i> (Home router) to local port <span style="color: #3300ff"><b>3389</b></span>.</li>
+    </ul>
+  </li>
+  <li>
+    On either <i>workstation</i> or <i>laptop</i> we establish the remote desktop connection to the Office Workstation as follows:
+    <ul>
+    <li>From Windows: <pre class="code">MSTSC.EXE /v:router</pre></li>
+    <li>From Linux: <pre class="code">rdesktop router -u &lt;user&gt; -d &lt;domain&gt; -p -</pre></li>
+    </ul>
+  </li>
+</ol>
+
+Following schema demonstrates the whole sequence of events:
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SczcdWo1YkI/AAAAAAAACz8/e8Ric3izvQk/s1600-h/RemoteDesktop3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 261px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SczcdWo1YkI/AAAAAAAACz8/e8Ric3izvQk/s400/RemoteDesktop3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317867656868880962" /></a>
+
+<h3>NX accelerated RDP</h3>
+@TBD
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/Scz3erOAHGI/AAAAAAAAC0M/XcMl7KFS_wI/s1600-h/NX-RDP.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 179px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/Scz3erOAHGI/AAAAAAAAC0M/XcMl7KFS_wI/s400/NX-RDP.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317897366387301474" /></a>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Scz13GvVS6I/AAAAAAAAC0E/dt-cDrrHmOA/s1600-h/RemoteDesktop4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 262px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Scz13GvVS6I/AAAAAAAAC0E/dt-cDrrHmOA/s400/RemoteDesktop4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317895587068464034" /></a>
+
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-7092835517381876974?l=filodej.blogspot.com' alt='' /></div>

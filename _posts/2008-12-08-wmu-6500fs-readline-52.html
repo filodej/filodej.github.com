@@ -1,0 +1,86 @@
+--- 
+name: wmu-6500fs-readline-52
+layout: post
+time: 2008-12-08 17:40:00 +01:00
+title: WMU-6500FS - built sw - readline-5.2
+---
+<a href="http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html">[Homepage]</a>
+<br/>
+<br/>
+<a href="http://filodej.ic.cz/filopack/.filopack/readline-5.2.lst">[files]</a>
+<a href="http://filodej.ic.cz/filopack/readline-5.2.tar.bz2">[binary]</a>
+<br/>
+<br/>
+<span class="fullpost">
+First we initialize the package timestamp:
+<pre class="code">
+dev# cd /mnt/C/
+dev# ./filopack.sh --init readline-5.2
+Configuration file .filopack/.config file found and used
+Timestamp written to file .filopack/readline-5.2.ts
+</pre>
+Now we can download and extract the source to the <i>/usr/local/src</i> directory:
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="ftp://ftp.gnu.org/gnu/readline/readline-5.2.tar.gz">ftp://ftp.gnu.org/gnu/readline/readline-5.2.tar.gz</a>
+--06:08:23--  ftp://ftp.gnu.org/gnu/readline/readline-5.2.tar.gz
+           => `readline-5.2.tar.gz'
+Resolving ftp.gnu.org... 140.186.70.20
+Connecting to ftp.gnu.org[140.186.70.20]:21... connected.
+Logging in as anonymous ... Logged in!
+==> SYST ... done.    ==> PWD ... done.
+==> TYPE I ... done.  ==> CWD /gnu/readline ... done.
+==> PORT ... done.    ==> RETR readline-5.2.tar.gz ... done.
+Length: 2,037,705 (unauthoritative)
+
+100%[===============================================================================================================================>] 2,037,705      4.38K/s    ETA 00:00
+
+06:20:28 (2.75 KB/s) - `readline-5.2.tar.gz' saved [2037705]
+
+dev# tar xzvf readline-5.2.tar.gz
+...
+</pre>
+Configuration and build process is straightforward:
+<pre class="code">
+dev# cd readline-5.2
+dev# ./configure --prefix=/mnt/C/sys
+...
+dev# make
+...
+dev# make install
+...
+</pre>
+Now we go back to the <i>/mnt/C</i> directory and finish the package creation:
+<pre class="code">
+dev# cd /mnt/C/
+dev# ./filopack.sh --pack readline-5.2
+Configuration file .filopack/.config file found and used
+-rw-r--r-- root/root    308780 2008-12-08 06:26:38 sys/lib/libreadline.a
+-rw-r--r-- root/root     37294 2008-12-08 06:26:38 sys/lib/libhistory.a
+lrwxrwxrwx root/root         0 2008-12-08 06:26:38 sys/lib/libhistory.so.5 -> libhistory.so.5.2
+-r-xr-xr-x root/root     34696 2008-12-08 06:26:38 sys/lib/libhistory.so.5.2
+lrwxrwxrwx root/root         0 2008-12-08 06:26:38 sys/lib/libhistory.so -> libhistory.so.5
+-r-xr-xr-x root/root    249866 2008-12-08 06:26:38 sys/lib/libreadline.so.5.2
+lrwxrwxrwx root/root         0 2008-12-08 06:26:38 sys/lib/libreadline.so.5 -> libreadline.so.5.2
+lrwxrwxrwx root/root         0 2008-12-08 06:26:38 sys/lib/libreadline.so -> libreadline.so.5
+-rw-r--r-- root/root     38459 2008-12-08 06:26:38 sys/man/man3/readline.3
+-rw-r--r-- root/root     21769 2008-12-08 06:26:38 sys/man/man3/history.3
+-rw-r--r-- root/root      2977 2008-12-08 06:26:38 sys/include/readline/rltypedefs.h
+-rw-r--r-- root/root      4684 2008-12-08 06:26:38 sys/include/readline/chardefs.h
+-rw-r--r-- root/root     10207 2008-12-08 06:26:38 sys/include/readline/history.h
+-rw-r--r-- root/root      3529 2008-12-08 06:26:38 sys/include/readline/keymaps.h
+-rw-r--r-- root/root     34515 2008-12-08 06:26:38 sys/include/readline/readline.h
+-rw-r--r-- root/root      2305 2008-12-08 06:26:38 sys/include/readline/rlconf.h
+-rw-r--r-- root/root      1503 2008-12-08 06:26:38 sys/include/readline/rlstdc.h
+-rw-r--r-- root/root      3167 2008-12-08 06:26:38 sys/include/readline/tilde.h
+-rw-r--r-- root/root    192320 2008-12-08 06:26:38 sys/info/readline.info
+-rw-r--r-- root/root     72955 2008-12-08 06:26:38 sys/info/rluserman.info
+-rw-r--r-- root/root     58583 2008-12-08 06:26:38 sys/info/history.info
+</pre>
+One more thing we have to do is to copy the readline initialization file to the root's directory, add it to the <i>.lst</i> file and re-build the package:
+<pre class="code">
+dev# cp /etc/inputrc /mnt/C/sys/root/.inputrc
+dev# echo "sys/root/.inputrc" >> .filopack/readline-5.2.lst
+dev# ./filopack.sh -R --pack readline-5.2
+</pre> 
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-7122647620877492936?l=filodej.blogspot.com' alt='' /></div>
