@@ -1,0 +1,37 @@
+--- 
+name: wmu-6500fs-built-sw-htop-08
+layout: post
+time: 2008-06-09 08:39:00 +02:00
+title: WMU-6500FS - HTop 0.8
+---
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/htop-0.8.tgz">[binary]</a>
+<a href="http://philodej.googlepages.com/htop-0.8.lst">[files list]</a> 
+<br/>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvx9hagwAI/AAAAAAAABec/xTOzPK8zGmI/s1600-h/wmu6500fs-htop.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvx9hagwAI/AAAAAAAABec/xTOzPK8zGmI/s400/wmu6500fs-htop.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5218530632482734082" /></a>
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<pre class="code">
+dev# wget <a href="http://mesh.dl.sourceforge.net/sourceforge/htop/htop-0.8.tar.gz">http://mesh.dl.sourceforge.net/sourceforge/htop/htop-0.8.tar.gz</a> 
+dev# tar xzvf htop-0.8.tar.gz
+dev# cd htop-0.8
+</pre>
+In order to be able to configure it on chroot-ed environment, we have to fake the /proc filesystem
+<pre class="code">
+dev# echo > /proc/stat
+dev# echo > /proc/meminfo
+dev# ./configure --prefix=/mnt/C/sys
+</pre>
+<b>Build error</b>
+<br/>
+It seems to me there is an inconsistency in DEBUG/ASSERT definition. There is a function called just in asserts (not necessary disabled in release build) but defined just in case of DEBUG build. 
+<br/>
+Quick fix: In <i>HashTable.c</i> comment out all asserts with <i>HashTable_isConsistent</i>
+<pre class="code">
+dev# make
+dev# make install
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-5618112691447320989?l=filodej.blogspot.com' alt='' /></div>

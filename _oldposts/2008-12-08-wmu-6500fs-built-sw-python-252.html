@@ -1,0 +1,569 @@
+--- 
+name: wmu-6500fs-built-sw-python-252
+layout: post
+time: 2008-12-08 17:59:00 +01:00
+title: WMU-6500FS - built sw -Python 2.5.2
+---
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SU12KUlB32I/AAAAAAAACZY/_Jqr7IbtEgA/s1600-h/python-252.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 252px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SU12KUlB32I/AAAAAAAACZY/_Jqr7IbtEgA/s400/python-252.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5282007857670250338" /></a>
+
+<a href="http://www.python.org">[Homepage]</a>
+<br/>
+<br/>
+<a href="http://filodej.ic.cz/filopack/.filopack/python-2.5.2.lst">[files]</a>
+<a href="http://filodej.ic.cz/filopack/python-2.5.2.tar.bz2">[binary]</a>
+<br/>
+<br/>
+<span class="fullpost">
+First I briefly write about the initial build: 
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://python.org/ftp/python/2.5.2/Python-2.5.2.tgz">http://python.org/ftp/python/2.5.2/Python-2.5.2.tgz</a>
+dev# tar xvzf Python-2.5.2.tgz
+dev# cd Python-2.5.2
+dev# ./configure --prefix=/mnt/C/sys --enable-shared
+dev# make
+</pre>
+There was an error with missing <i>'yperr_string'</i> symbol (I am not sure whether it was during the build or when I launched python console). The symbol was needed by the <i>nis</i> extension module. I do not know how on earth I would utilize an <a href="http://www.python.org/doc/2.5.2/lib/module-nis.html">Interface to Sun's NIS (Yellow pages)</a> so as a workaround I simply disabled it.  
+<pre class="code">
+dev# make
+dev# make install
+dev# python
+</pre>
+Another failure - error while loading shared libraries: <i>libpython2.5.so.1.0</i> (it is located in <i>/mnt/C/sys/lib</i>).
+<br/>
+As a solution, if there was a dynamic loader configuration on the box (<i>/etc/ld.so.conf.d</i>) we could do following:
+<pre class="code">
+dev# echo /usr/local/lib > /etc/ld.so.conf.d/python2.5.conf
+dev# ldconfig
+</pre>
+As there is not, we can use the <i>LD_LIBRARY_PATH</i> variable instead:
+<pre class="code">
+dev# nano /mnt/C/sys/etc/rc-local
+<i>Add following:</i>
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/mnt/C/sys/lib
+</pre>
+Now everything works ok.
+<br/>
+<br/>
+After some time I realized that there is a <i>readline</i> extension module missing on the system. This module is needed for interactive console applications, and particularly is needed for the deluge console:
+<pre class="code">
+box# deluge --ui=null
+[INFO    ] 21:58:04 main:93 Deluge ui 1.0.5
+[DEBUG   ] 21:58:04 main:94 options: {'config': None, 'logfile': None, 'ui': 'null'}
+[DEBUG   ] 21:58:04 main:95 args: []
+[DEBUG   ] 21:58:05 configmanager:44 ConfigManager started..
+[INFO    ] 21:58:05 main:98 Starting ui..
+[DEBUG   ] 21:58:05 ui:44 UI init..
+[DEBUG   ] 21:58:05 configmanager:88 Getting config 'ui.conf'
+[DEBUG   ] 21:58:05 config:47 Config created with filename: ui.conf
+[DEBUG   ] 21:58:05 config:48 Config defaults: {'default_ui': 'gtk'}
+[INFO    ] 21:58:05 ui:68 Starting NullUI..
+[DEBUG   ] 21:58:06 client:54 CoreProxy init..
+Traceback (most recent call last):
+  File "/usr/bin/deluge", line 8, in &lt;module&gt;
+    load_entry_point('deluge==1.0.5', 'console_scripts', 'deluge')()
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/main.py", line 99, in start_ui
+    UI(options, args)
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/ui/ui.py", line 69, in __init__
+    from deluge.ui.null.deluge_shell import NullUI
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/ui/null/deluge_shell.py", line 29, in &lt;module&gt;
+    import readline
+ImportError: No module named readline
+</pre>
+We can replicate this problem directly from the python console:
+<pre class="code">
+dev# python
+Python 2.5.2 (r252:60911, May  3 2008, 16:19:27)
+[GCC 3.3.6] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+ImportError: No module named readline
+&gt;&gt;&gt;
+</pre>
+So let's look at the old log of python's configure script to see why the <i>readline</i> extension package was not built:
+<pre class="code">
+dev# cat config.log | grep readline
+configure:20980: checking for readline in -lreadline
+configure:21015: gcc -pthread -o conftest -g -O2   conftest.c -lreadline  -lpthread -ldl  -lutil &gt;&5
+/usr/bin/ld: <b>cannot find -lreadline</b>
+| char readline ();
+| return readline ();
+configure:21126: checking for rl_callback_handler_install in -lreadline
+configure:21161: gcc -pthread -o conftest -g -O2   conftest.c -lreadline  -lpthread -ldl  -lutil &gt;&5
+/usr/bin/ld: cannot find -lreadline
+configure:21254: checking for rl_pre_input_hook in -lreadline
+configure:21289: gcc -pthread -o conftest -g -O2   conftest.c -lreadline  -lpthread -ldl  -lutil &gt;&5
+/usr/bin/ld: cannot find -lreadline
+configure:21325: checking for rl_completion_matches in -lreadline
+configure:21360: gcc -pthread -o conftest -g -O2   conftest.c -lreadline  -lpthread -ldl  -lutil &gt;&5
+/usr/bin/ld: cannot find -lreadline
+ac_cv_lib_readline_readline=<b>no</b>
+ac_cv_lib_readline_rl_callback_handler_install=no
+ac_cv_lib_readline_rl_completion_matches=no
+ac_cv_lib_readline_rl_pre_input_hook=no
+</pre>
+We can see that the library simply was not on the system and so the python configure script decided to exclude it's python wrapper from the build.
+<br/>
+<br/>
+Before we proceed, we have to build the GNU readline and create a new package for it. How it was done is described in <a href="http://filodej.blogspot.com/2008/12/wmu-6500fs-readline-52.html">this post</a>.
+<br/>
+<br/>
+Now we have the <i>libreadline.so</i> library on the system and so can proceed to re-configure and re-build the python package. First we create a new timestamp file for python package and touch all the old files (in order to be included in the package). We can use the filopack script for that purpose:
+<pre class="code">
+dev# cd /mnt/C
+dev# ./filopack.sh --init python-2.5.2
+dev# ./filopack.sh --touch python-2.5.2
+Configuration file .filopack/.config file found and used
+Sure to touch all files of the python-2.5.2 locally at /mnt/C (y/n)?y
+...
+</pre>
+Now we can move to the python source directory and re-configure the build:
+<pre class="code">
+dev# cd /usr/local/src/Python-2.5.2
+dev# ./configure --prefix=/mnt/C/sys --enable-shared
+...
+</pre>
+Let's check whether the <i>readline</i> package was found and included to the build:
+<pre class="code">
+dev# cat config.log | grep readline
+configure:20980: checking for readline in -lreadline
+configure:21015: <b>gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lpthread -ldl  -lutil &gt;&5</b>
+<b>/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetnum'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgoto'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetflag'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `BC'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tputs'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `PC'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetent'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `UP'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetstr'</b>
+...
+ac_cv_lib_readline_readline=<b>no</b>
+ac_cv_lib_readline_rl_callback_handler_install=no
+ac_cv_lib_readline_rl_completion_matches=no
+ac_cv_lib_readline_rl_pre_input_hook=no
+</pre>
+The situation changed, the <i>readline</i> library is (presumably) no longer missing, but still there are some missing symbols and thus the configure test failed.
+<br/>
+<br/>
+After a short googling (for query <i>"libreadline.so: undefined reference to BC PC UP"</i>) I found <a href="http://www.nabble.com/I-could-not-find-libreadline-td13809746.html">this page</a>.
+<br/>
+It seems that the missing symbols should be present in <i>ncurses</i> library.
+<br/>
+<br/>
+Let's look what symbols are at the library in our system:
+<pre class="code">
+dev# nm /lib/libncurses.so | grep "tgetnum\|tgoto\|tgetflag\|BC\|PC\|UP"
+0003a544 B BC
+0003a770 B PC
+0003a540 B UP
+000248e1 T tgetflag
+00024958 T tgetnum
+00024b0c T tgoto
+</pre>
+It means that the symbols are there, but the python configuration script did not manage to find the library.
+<br/>
+<br/>
+For quick feedback for our experiments we can create a dummy C file and use the same compiler command line as the configure script did:
+<pre class="code">
+dev# echo "int main() { return 0; }" > conftest.c
+dev# gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lpthread -ldl  -lutil
+/mnt/C/sys/lib/gcc/i386-linux-uclibc/4.1.2/../../../../i386-linux-uclibc/lib/crt1.o: In function `_start':
+crt1.S:(.text+0x27): undefined reference to `main'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetnum'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgoto'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetflag'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `BC'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tputs'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `PC'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetent'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `UP'
+/mnt/C/sys/lib/libreadline.so: undefined reference to `tgetstr'
+collect2: ld returned 1 exit status
+</pre>
+We see that the linker ended up with the same error. Now we can try to fix the command line. There is missing <i>ncurses</i> library on the command line; what about adding it explicitly?
+<pre class="code">
+dev# gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib
+ -L/mnt/C/sys/X11/lib conftest.c <b>-lncurses</b> -lreadline  -lpthread -ldl  -lutil
+</pre>
+The test build now works, so now we can remove the temporary C-file and re-configure the python build:
+<pre class="code">
+dev# rm conftest.c
+
+dev# <b>LIBS="-lncurses"</b> ./configure --prefix=/mnt/C/sys --enable-shared
+...
+</pre>
+Let's make sure that <i>readline</i> package passed the configure test:
+<pre class="code"> 
+dev# cat config.log | grep readline
+configure:20980: checking for readline in -lreadline
+configure:21015: gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lpthread -ldl -lncurses -lutil &gt;&5
+configure:21126: checking for rl_callback_handler_install in -lreadline
+configure:21161: gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lreadline -lpthread -ldl -lncurses -lutil &gt;&5
+configure:21254: checking for rl_pre_input_hook in -lreadline
+configure:21289: gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lreadline -lpthread -ldl -lncurses -lutil &gt;&5
+configure:21325: checking for rl_completion_matches in -lreadline
+configure:21360: gcc -pthread -o conftest -I/mnt/C/sys/include -I/mnt/C/sys/X11/include  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib conftest.c -lreadline  -lreadline -lpthread -ldl -lncurses -lutil &gt;&5
+ac_cv_lib_readline_readline=<b>yes</b>
+ac_cv_lib_readline_rl_callback_handler_install=yes
+ac_cv_lib_readline_rl_completion_matches=yes
+ac_cv_lib_readline_rl_pre_input_hook=yes
+</pre>
+Yes, everything is ok now, we can build the source and install the binaries:
+<pre class="code">
+dev# make
+...
+/mnt/C/sys/include/sqlite3.h: version 3.5.8
+INFO: Can't locate Tcl/Tk libs and/or headers
+<b>building 'readline' extension</b>
+gcc -pthread -fPIC -fno-strict-aliasing -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -I. -I/usr/local/src/Python-2.5.2/./Include -I/mnt/C/sys/include -I. -IInclude -I./Include -I/usr/local/include -I/usr/local/src/Python-2.5.2/Include -I/usr/local/src/Python-2.5.2 -c /usr/local/src/Python-2.5.2/Modules/readline.c -o build/temp.linux-i686-2.5/usr/local/src/Python-2.5.2/Modules/readline.o
+gcc -pthread -shared -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib -fno-strict-aliasing -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes build/temp.linux-i686-2.5/usr/local/src/Python-2.5.2/Modules/readline.o -L/usr/lib/termcap -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib -L/usr/local/lib -L. -lreadline -lncurses -lpython2.5 -o build/lib.linux-i686-2.5/readline.so
+building 'nis' extension
+gcc -pthread -fPIC -fno-strict-aliasing -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -I. -I/usr/local/src/Python-2.5.2/./Include -I/mnt/C/sys/include -I. -IInclude -I./Include -I/usr/local/include -I/usr/local/src/Python-2.5.2/Include -I/usr/local/src/Python-2.5.2 -c /usr/local/src/Python-2.5.2/Modules/nismodule.c -o build/temp.linux-i686-2.5/usr/local/src/Python-2.5.2/Modules/nismodule.o
+gcc -pthread -shared -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib -fno-strict-aliasing -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes build/temp.linux-i686-2.5/usr/local/src/Python-2.5.2/Modules/nismodule.o -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib -L/usr/local/lib -L. -lnsl -lpython2.5 -o build/lib.linux-i686-2.5/nis.so
+*** WARNING: renaming "nis" since importing it failed: dynamic module does not define init function (initnis)
+running build_scripts
+
+dev# make install
+...
+</pre>
+Now, let's test the new installation:
+<pre class="code">
+dev# python
+Python 2.5.2 (r252:60911, Dec  8 2008, 07:26:01)
+[GCC 4.1.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+</pre>
+This is fine; and what about the deluge console:
+<pre class="code">
+dev# deluge --ui=null
+[INFO    ] 07:28:18 main:93 Deluge ui 1.0.5
+[DEBUG   ] 07:28:18 main:94 options: {'config': None, 'logfile': None, 'ui': 'null'}
+[DEBUG   ] 07:28:18 main:95 args: []
+[DEBUG   ] 07:28:18 configmanager:44 ConfigManager started..
+[INFO    ] 07:28:18 main:98 Starting ui..
+[DEBUG   ] 07:28:18 ui:44 UI init..
+[DEBUG   ] 07:28:18 configmanager:88 Getting config 'ui.conf'
+[DEBUG   ] 07:28:18 config:47 Config created with filename: ui.conf
+[DEBUG   ] 07:28:18 config:48 Config defaults: {'default_ui': 'gtk'}
+[INFO    ] 07:28:18 ui:68 Starting NullUI..
+[DEBUG   ] 07:28:18 client:54 CoreProxy init..
+Welcome to deluge-shell. Type 'help' to see a list of available commands.
+&gt; help
+
+Available commands:
+        * add: Add a torrent
+        * config-set: Change a configuration setting
+        * configs: Show configuration values
+        * connect: Connect to a new deluge server.
+        * del: Remove a torrent
+        * exit: Exit from the client.
+        * halt: Shutdown the deluge server.
+        * help: Show help
+        * info: Show information about the torrents
+        * pause: Pause a torrent
+        * quit: Exit from the client.
+        * resume: Resume a torrent
+        * rm: Remove a torrent
+&gt; quit
+
+Thanks
+</pre>
+Everything is now ok, we can create a new python package:
+<pre class="code">
+dev# cd /mnt/C
+dev# ./filopack.sh --pack python-2.5.2
+...
+</pre>
+I realized that there are many files which are not a necessary part of the resulting package. Thhose are files with <i>.pyc</i> and <i>.pyo</i> extensions - just in time compiled python files. So I removed them from the list and re-created the package:
+<pre class="code">
+dev# ./filopack.sh -R --pack python-2.5.2
+...
+</pre>
+I have uploaded the <a href="http://filodej.ic.cz/filopack/python-2.5.2.tar.bz2">resulting package</a> on the web site. Now we can fix the problem on the box.
+<br/>
+<br/>
+First let's look at the summary of installed files:
+<pre class="code">
+box# cd /mnt/C
+box# ./filopack.sh --summary
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+
+Filodej package summary:
+Package name                          downloaded [#installed/#total]
+--------------------------------------------------------------------
+...
+python-2.5.2                              no           [3525/3648]
+...
+</pre>
+... so the python package is installed; let's remove it:
+<pre class="code">
+box# ./filopack.sh --remove python-2.5.2
+Configuration file .filopack/.config file found and used
+Sure to remove python-2.5.2 locally at /mnt/C (y/n)?y
+...
+</pre>
+Now we can download and install both <a href="http://filodej.ic.cz/filopack/readline-5.2.tar.bz2">readline-5.2</a>:
+<pre class="code">
+box# ./filopack.sh --download readline-5.2
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Downloading package readline-5.2 from http://filodej.ic.cz ...
+connected!
+
+Length: 573 [text/plain]
+connected!
+
+Length: 265,962 [application/x-tar]
+
+box# ./filopack.sh --install readline-5.2
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Sure to unpack readline-5.2 locally at /mnt/C (y/n)?y
+sys/lib/libreadline.a
+sys/lib/libhistory.a
+sys/lib/libhistory.so.5
+sys/lib/libhistory.so.5.2
+sys/lib/libhistory.so
+sys/lib/libreadline.so.5.2
+sys/lib/libreadline.so.5
+sys/lib/libreadline.so
+sys/man/man3/readline.3
+sys/man/man3/history.3
+sys/include/readline/rltypedefs.h
+sys/include/readline/chardefs.h
+sys/include/readline/history.h
+sys/include/readline/keymaps.h
+sys/include/readline/readline.h
+sys/include/readline/rlconf.h
+sys/include/readline/rlstdc.h
+sys/include/readline/tilde.h
+sys/info/readline.info
+sys/info/rluserman.info
+sys/info/history.info
+</pre>
+... and <a href="http://filodej.ic.cz/filopack/python-2.5.2.tar.bz2">python-2.5.2</a> package:
+<pre class="code">
+box# ./filopack.sh --download python-2.5.2
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Downloading package python-2.5.2 from http://filodej.ic.cz ...
+connected!
+
+Length: 134,205 [text/plain]
+connected!
+
+Length: 12,984,464 [application/x-tar]
+
+box# ./filopack.sh --install python-2.5.2
+Configuration file .filopack/.config file found and used
+Retrieving package index... (Connecting to http://filodej.ic.cz)
+Sure to unpack python-2.5.2 locally at /mnt/C (y/n)?y
+...
+</pre>
+After the installation everything seemed ok:
+<pre class="code">
+box# python
+Python 2.5.2 (r252:60911, Dec  8 2008, 07:26:01)
+[GCC 4.1.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+&gt;&gt;&gt;
+</pre>
+... but surprisingly one more problem arose when I ran the deluge console:
+<pre class="code">
+box# deluged.sh
+
+box# deluge --ui=null
+[INFO    ] 16:56:44 main:93 Deluge ui 1.0.5
+[DEBUG   ] 16:56:44 main:94 options: {'config': None, 'logfile': None, 'ui': 'null'}
+[DEBUG   ] 16:56:44 main:95 args: []
+[DEBUG   ] 16:56:45 configmanager:44 ConfigManager started..
+[INFO    ] 16:56:45 main:98 Starting ui..
+[DEBUG   ] 16:56:45 ui:44 UI init..
+[DEBUG   ] 16:56:45 configmanager:88 Getting config 'ui.conf'
+[DEBUG   ] 16:56:45 config:47 Config created with filename: ui.conf
+[DEBUG   ] 16:56:45 config:48 Config defaults: {'default_ui': 'gtk'}
+[INFO    ] 16:56:45 ui:68 Starting NullUI..
+[DEBUG   ] 16:56:46 client:54 CoreProxy init..
+Welcome to deluge-shell. Type 'help' to see a list of available commands.
+Traceback (most recent call last):
+  File "/usr/bin/deluge", line 8, in <module>
+    load_entry_point('deluge==1.0.5', 'console_scripts', 'deluge')()
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/main.py", line 99, in start_ui
+    UI(options, args)
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/ui/ui.py", line 70, in __init__
+    ui = NullUI(args)
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-1.0.5-py2.5-linux-i686.egg/deluge/ui/null/deluge_shell.py", line 470, in __init__
+    readline.read_init_file()
+IOError: [Errno 2] No such file or directory
+</pre>
+When we look at the <a href="http://docs.python.org/library/readline.html">python readline documentation</a> we see the following:
+<pre>
+readline.read_init_file([filename])
+    Parse a readline initialization file. The default filename is the last filename used.
+</pre>
+It seems that there is a readline initialization file missing on the box (probably it was outside the <i>/mnt/C/sys</i> directory tree and so was not transferred to the box).
+<br/>
+<br/>
+Let's try to replicate the problem directly from python console:
+<pre class="code">
+box# python
+Python 2.5.2 (r252:60911, Dec  8 2008, 07:26:01)
+[GCC 4.1.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+&gt;&gt;&gt; readline.read_init_file()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+IOError: [Errno 2] No such file or directory
+</pre>
+When I tried it on the colinux system, everything was ok:
+<pre class="code">
+dev# python
+Python 2.5.2 (r252:60911, Dec  8 2008, 07:26:01)
+[GCC 4.1.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+&gt;&gt;&gt; readline.read_init_file()
+&gt;&gt;&gt;
+</pre>
+Hopefully the system call trace will help:
+<pre class="code">
+box# strace -o readline-init.txt python
+Python 2.5.2 (r252:60911, Dec  8 2008, 07:26:01)
+[GCC 4.1.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import readline
+&gt;&gt;&gt; readline.read_init_file()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in <module>
+IOError: [Errno 2] No such file or directory
+&gt;&gt;&gt;
+</pre>
+Let's look at the end of the trace log:
+<pre class="code">
+box# tail -n 100 readline-init.txt
+...
+rt_sigprocmask(SIG_BLOCK, [INT], [RTMIN], 8) = 0
+ioctl(0, SNDCTL_TMR_STOP or TCSETSW, {B38400 opost isig icanon echo ...}) = 0
+rt_sigprocmask(SIG_SETMASK, [RTMIN], NULL, 8) = 0
+rt_sigaction(SIGWINCH, {SIG_DFL}, {0x40139066, [], SA_RESTORER|SA_RESTART, 0x401c45a8}, 8) = 0
+time(NULL)                              = 1228752774
+stat("<b>/mnt/C/sys/root/.inputrc</b>", 0xbffff4ec) = -1 ENOENT (No such file or directory)
+stat("<b>/etc/inputrc</b>", 0xbffff4ec)        = -1 ENOENT (No such file or directory)
+write(2, "Traceback (most recent call last"..., 35) = 35
+...
+write(2, "  File \"&lt;stdin&gt;\", line 1, in &lt;mo"..., 38) = 38
+write(2, "IOError", 7)                  = 7
+write(2, ": ", 2)                       = 2
+write(2, "[Errno 2] No such file or direct"..., 35) = 35
+write(2, "\n", 1)                       = 1
+ioctl(0, SNDCTL_TMR_TIMEBASE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
+ioctl(1, SNDCTL_TMR_TIMEBASE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
+rt_sigprocmask(SIG_BLOCK, [INT], [RTMIN], 8) = 0
+ioctl(0, TIOCGWINSZ, {ws_row=31, ws_col=84, ws_xpixel=0, ws_ypixel=0}) = 0
+ioctl(0, TIOCSWINSZ, {ws_row=31, ws_col=84, ws_xpixel=0, ws_ypixel=0}) = 0
+ioctl(0, SNDCTL_TMR_TIMEBASE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
+ioctl(0, SNDCTL_TMR_STOP or TCSETSW, {B38400 opost isig -icanon -echo ...}) = 0
+rt_sigprocmask(SIG_SETMASK, [RTMIN], NULL, 8) = 0
+rt_sigaction(SIGWINCH, {0x40139066, [], SA_RESTORER|SA_RESTART, 0x401c45a8}, {SIG_DFL}, 8) = 0
+write(1, "&gt;&gt;&gt; ", 4)                     = 4
+select(1, [0], NULL, NULL, NULL)        = 1 (in [0])
+rt_sigprocmask(SIG_BLOCK, NULL, [RTMIN], 8) = 0
+rt_sigprocmask(SIG_BLOCK, NULL, [RTMIN], 8) = 0
+read(0, "\4", 1)                        = 1
+rt_sigprocmask(SIG_BLOCK, [INT], [RTMIN], 8) = 0
+ioctl(0, SNDCTL_TMR_STOP or TCSETSW, {B38400 opost isig icanon echo ...}) = 0
+rt_sigprocmask(SIG_SETMASK, [RTMIN], NULL, 8) = 0
+rt_sigaction(SIGWINCH, {SIG_DFL}, {0x40139066, [], SA_RESTORER|SA_RESTART, 0x401c45a8}, 8) = 0
+write(2, "\n", 1)                       = 1
+rt_sigaction(SIGINT, {SIG_DFL}, {0x40139066, [], SA_RESTORER, 0x401c45a8}, 8) = 0
+munmap(0x402ad000, 16188)               = 0
+munmap(0x402b1000, 216100)              = 0
+_exit(0)                                = ?
+</pre>
+So we found that neither <i>/etc/inputrc</i> nor <i>/mnt/C/sys/root/.inputrc</i> is present on the box and thus the readline initialization complains.
+<br/>
+<br/>
+As a solution I choosen to copy the initialization file to root's user directory and re-build the <i>readline</i> package:
+<pre class="code">
+dev# cp /etc/inputrc /mnt/C/sys/root/.inputrc
+dev# echo "sys/root/.inputrc" >> .filopack/readline-5.2.lst
+dev# ./filopack.sh -R --pack readline-5.2
+</pre>
+After the re-deployment to the box everything works ok:
+<pre class="code">
+dev# deluge --ui=null
+[INFO    ] 17:22:53 main:93 Deluge ui 1.0.5
+[DEBUG   ] 17:22:53 main:94 options: {'config': None, 'logfile': None, 'ui': 'null'}
+[DEBUG   ] 17:22:53 main:95 args: []
+[DEBUG   ] 17:22:53 configmanager:44 ConfigManager started..
+[INFO    ] 17:22:53 main:98 Starting ui..
+[DEBUG   ] 17:22:53 ui:44 UI init..
+[DEBUG   ] 17:22:53 configmanager:88 Getting config 'ui.conf'
+[DEBUG   ] 17:22:53 config:47 Config created with filename: ui.conf
+[DEBUG   ] 17:22:53 config:48 Config defaults: {'default_ui': 'gtk'}
+[INFO    ] 17:22:53 ui:68 Starting NullUI..
+[DEBUG   ] 17:22:55 client:54 CoreProxy init..
+Welcome to deluge-shell. Type 'help' to see a list of available commands.
+> help
+
+Available commands:
+        * add: Add a torrent
+        * config-set: Change a configuration setting
+        * configs: Show configuration values
+        * connect: Connect to a new deluge server.
+        * del: Remove a torrent
+        * exit: Exit from the client.
+        * halt: Shutdown the deluge server.
+        * help: Show help
+        * info: Show information about the torrents
+        * pause: Pause a torrent
+        * quit: Exit from the client.
+        * resume: Resume a torrent
+        * rm: Remove a torrent
+
+> connect
+
+
+> info
+
+*** ID: 33820db6dd5e5928d23bc811bbac2f4ae94cb882
+*** Name: ubuntu-8.10-desktop-i386.iso
+*** Path: torrentfiles
+*** Completed: 0.0 KiB/698.8 MiB
+*** Status: Paused
+
+
+> resume
+
+Usage: resume <torrent-id> [<torrent-id> ...]
+
+
+> resume 33820db6dd5e5928d23bc811bbac2f4ae94cb882
+
+
+> info
+
+*** ID: 33820db6dd5e5928d23bc811bbac2f4ae94cb882
+*** Name: ubuntu-8.10-desktop-i386.iso
+*** Path: torrentfiles
+*** Completed: 2.1 MiB/698.8 MiB
+*** Status: Downloading
+*** Download Speed: 60.9 KiB/s
+*** Upload Speed: 0.0 KiB/s
+*** ETA: 3h 15m
+
+
+> exit
+
+Thanks
+box#
+</pre>
+That's all for now.
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-3055464703673033209?l=filodej.blogspot.com' alt='' /></div>

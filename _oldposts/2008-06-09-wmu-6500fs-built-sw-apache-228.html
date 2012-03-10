@@ -1,0 +1,133 @@
+--- 
+name: wmu-6500fs-built-sw-apache-228
+layout: post
+time: 2008-06-09 08:38:00 +02:00
+title: WMU-6500FS - Apache 2.2.8
+---
+<h3>Apache 2.2.8</h3>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/httpd-2.2.8.tgz">[binary]</a>
+<a href="http://philodej.googlepages.com/httpd-2.2.8.lst">[files list]</a>
+<br/><br/>
+<span class="fullpost">
+<b>Build sequence</b>
+<pre class="code">
+dev# wget <a href="http://apache.mirror.superhosting.cz/httpd/httpd-2.2.8.tar.bz2">http://apache.mirror.superhosting.cz/httpd/httpd-2.2.8.tar.bz2</a>
+dev# tar xvjf httpd-2.2.8.tar.bz2
+dev# cd httpd-2.2.8
+dev# ./configure --prefix=/mnt/C/sys/apache2 <b>--enable-dav --enable-so --enable-maintainer-mode --enable-ssl</b>
+dev# make
+dev# make install
+</pre>
+<b>Configuration</b><br/>
+Info sources: <a href="http://omninoggin.com/2007/09/05/setting-up-a-freebsd-62-web-server-optimizing-apache-part-4">[Optimizing apache]</a>
+<br/>
+First, we have to configure box to run apache after reboot:
+... in file <i>"/mnt/C/sys/etc/env-ng"</i>:
+<pre class="code">
+# if 1 then installed apache 2.2 version will be running
+APACHE22=1
+</pre>
+Then we can try to modify default apache behavior regarding to number of processes and threads (due to limited RAM of the box):<br/>
+In file <i>/usr/links/storage-C/sys/apache2/conf/extra/httpd-mpm.conf</i> I have changed the following settings:
+<pre class="code">
+StartServers          1
+MinSpareServers       1
+MaxSpareServers       1
+MaxClients            1
+MaxRequestsPerChild 5000
+</pre>
+
+<h3>mod_python 3.3.1</h3>
+<i>Apache module for python implemented handlers</i>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/mod_python-3.3.1.tgz">[binary]</a>
+<a href="http://philodej.googlepages.com/mod_python-3.3.1.lst">[files list]</a>
+<br/>
+<b>Info sources:</b>
+<a href="http://www.dscpl.com.au/wiki/ModPython/Articles/GettingModPythonWorking">[Getting ModPython Working]</a>
+<a href="http://trac.edgewall.org/wiki/TracModPython">[Trac ModPython]</a>
+<br/>
+<br/>
+<b>Build sequence</b>
+<pre class="code">
+dev# wget <a href="http://apache.mirror.superhosting.cz/httpd/modpython/mod_python-3.3.1.tgz">http://apache.mirror.superhosting.cz/httpd/modpython/mod_python-3.3.1.tgz</a>
+dev# tar xvzf mod_python-3.3.1.tgz
+dev# cd mod_python-3.3.1/
+dev# ./configure --prefix=/mnt/C/sys <b>--with-apxs=/mnt/C/sys/apache2/bin/apxs 
+--with-python=/mnt/C/sys/bin/python2.5</b>
+<i>found /usr/bin/flex, we'll use this. Use --with-flex to specify another. 
+checking flex version... configure: WARNING: Flex version 2.5.4 found. 
+Version 2.5.31 or greater is required. You can generally ignore this 
+warning unless you need to regenerate psp_parser.c from psp_parse.l. 
+If you do need regenerate psp_parser.c, use --with-flex to specify the 
+location of the correct flex version. See the README for more information.</i>
+
+dev# make
+dev# sudo make install
+</pre>
+Create a <i>"/mnt/C/sys/var/www/test/.htaccess"</i> file in your subdirectory and place in it: 
+<pre class="code">
+AddHandler mod_python .py
+PythonHandler mptest
+PythonDebug On
+</pre>
+Configure www directory:
+<pre class="code">
+box# cd /mnt/C/sys/var/www
+box# mkdir test
+( box# chown <user> test )
+box# cd test
+box# echo "AddHandler mod_python .py
+&gt; PythonHandler mptest
+&gt; PythonDebug On" &gt; .htaccess
+</pre>
+Modify apache configuration:
+<pre class="code">
+box# nano /mnt/C/sys/apache2/conf/httpd.conf
+</pre>
+In httpd.conf change following:
+<pre class="code">
+  User nobody
+  Group nobody
+
+  DocumentRoot "/mnt/C/sys/var/www"
+
+  &lt;Directory "/mnt/C/sys/var/www"&gt;
+    ...
+  &lt;/Directory&gt;
+
+  ScriptAlias /cgi-bin/ "/mnt/C/sys/var/cgi-bin/"
+
+  &lt;Directory "/mnt/C/sys/var/cgi-bin"&gt;
+    ...
+  &lt;/Directory&gt;
+</pre>
+... and add following (at Load modules section):
+<pre class="code">
+  LoadModule python_module      modules/mod_python.so
+</pre>
+... and add following (after the root directory definition):
+<pre class="code">
+  &lt;Directory "/mnt/C/sys/var/www/test"&gt;
+    AllowOverride FileInfo
+  &lt;/Directory&gt;
+</pre>
+Create test python handler <i>"/mnt/C/sys/apache2/htdocs/test/mptest.py"</i>: 
+<pre class="code">
+box# echo "from mod_python import apache
+&gt;
+&gt; def handler(req):
+&gt;     req.log_error('handler')
+&gt;     req.content_type = 'text/plain'
+&gt;     req.send_http_header()
+&gt;     req.write('It is working!!!\n')
+&gt;     return apache.OK
+&gt; " &gt; /mnt/C/sys/apache2/htdocs/test/mptest.py
+</pre>
+Test configuration (following command should show page containing string "It is working!!!"):
+<pre class="code">
+box# lynx localhost/test/mptest.py
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-3006736457354093262?l=filodej.blogspot.com' alt='' /></div>

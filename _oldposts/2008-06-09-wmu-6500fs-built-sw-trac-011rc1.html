@@ -1,0 +1,86 @@
+--- 
+name: wmu-6500fs-built-sw-trac-011rc1
+layout: post
+time: 2008-06-09 08:42:00 +02:00
+title: WMU-6500FS - Trac 0.11rc1
+---
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvxNxjfMNI/AAAAAAAABeM/JSB0mDSd3No/s1600-h/wmu6500fs-trac.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SGvxNxjfMNI/AAAAAAAABeM/JSB0mDSd3No/s400/wmu6500fs-trac.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5218529812181627090" /></a>
+<br/>
+<br/>
+<b>Build results:</b> 
+No deployment needed (installation is performed directly to the box).
+<br/>
+<br/>
+<b>Dependencies:</b> <a href="http://filodej.blogspot.com/2008/06/wmu.html">subversion</a>, python, <a href="http://filodej.blogspot.com/2008/06/wmu-6500fs-built-sw-apache-228.html"> apache &amp; mod_python</a>, <a href="http://filodej.blogspot.com/2008/06/wmu-6500fs-built-sw-sqllite-358.html">SQLite</a>
+<br/>
+<br/>
+<b>Info sources:</b>
+<a href="http://trac.edgewall.org/wiki/TracInstall">[Trac installation guide]</a>
+<a href="http://queens.db.toronto.edu/%7Enilesh/linux/subversion-howto/" >[Subversion-Trac howto]</a>
+<a href="http://trac.edgewall.org/wiki/TracModPython" id="qlh:">[Trac &amp; ModPython]</a>
+<span class="fullpost">
+<h3>setuptools</h3>
+<pre class="code">
+box# cd /mnt/C
+box# wget <a href="http://peak.telecommunity.com/dist/ez_setup.py">http://peak.telecommunity.com/dist/ez_setup.py</a>
+box# python ez_setup.py
+</pre>
+<h3>Genshi</h3>
+<pre class="code">
+box# python /mnt/C/sys/bin/easy_install --prefix=/mnt/C/sys Genshi
+</pre>
+<h3>Trac</h3>
+<pre class="code">
+box# python /mnt/C/sys/bin/easy_install --prefix=/mnt/C/sys Trac
+</pre>
+<b>Prepare project</b>
+<pre class="code">
+box# mkdir /mnt/C/sys/var/trac
+box# mkdir /mnt/C/sys/var/trac/&lt;project&gt;
+box# trac-admin /mnt/C/sys/var/trac/&lt;project&gt; initenv
+</pre>
+... and fill in all project info (point it to project's subversion erpository e.g. /mnt/C/sys/var/svn/&lt;project&gt; etc.)<br/>
+<br/>
+Test standalone trac http daemon
+<pre class="code">
+box# tracd --port 8000 /mnt/C/sys/var/trac/&lt;project&gt;
+box# lynx http://localhost:8000
+</pre>
+<b>Administration</b>
+<br/>
+Edit apache configuration
+<pre class="code">
+box# nano /mnt/C/sys/apache2/conf/httpd.conf
+</pre>
+Add following:
+<pre class="code">
+&lt;Location /projects/&lt;project&gt;&gt;
+  SetHandler mod_python
+  PythonInterpreter main_interpreter
+  PythonHandler trac.web.modpython_frontend
+  PythonOption TracEnv /mnt/C/sys/var/trac/&lt;project&gt;
+  PythonOption TracUriRoot /projects/&lt;project&gt;
+&lt;/Location&gt;
+
+&lt;Location /projects/&lt;project&gt;/login&gt;
+  AuthType Basic
+  AuthName "&lt;project&gt;"
+  AuthUserFile /mnt/C/sys/var/trac/&lt;project&gt;/.htpasswd
+  Require valid-user
+&lt;/Location&gt;
+</pre>
+Create password file
+<pre class="code">
+box# htpasswd -c /mnt/C/sys/var/trac/&lt;project&gt;/.htpasswd &lt;user&gt;
+box# trac-admin /mnt/C/sys/var/trac/&lt;project&gt; permission add admin TRAC_ADMIN
+</pre>
+Initialize web administration
+<pre class="code">
+box# nano /mnt/C/sys/var/trac/&lt;project&gt;/conf/trac.ini
+</pre>
+Add following:
+<pre class="code">
+[components]
+webadmin.* = enabled
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-6017208845651279146?l=filodej.blogspot.com' alt='' /></div>

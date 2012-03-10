@@ -1,0 +1,83 @@
+--- 
+name: wmu
+layout: post
+time: 2008-06-09 08:40:00 +02:00
+title: WMU-6500FS - Subversion 1.4.6
+---
+<i>Configured with python and perl language bindings.</i>
+<br/>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SGvxlH3x6VI/AAAAAAAABeU/rNIbkvbc4p0/s1600-h/wmu6500fs-svn.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SGvxlH3x6VI/AAAAAAAABeU/rNIbkvbc4p0/s400/wmu6500fs-svn.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5218530213309311314" /></a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/subversion-1.4.6-py-pl.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/subversion-1.4.6-py-pl.lst">[files list]</a>
+<br/>
+<b>Info sources:</b>
+<a href="http://svn.collab.net/repos/svn/trunk/INSTALL">[Installing svn - quick guide]</a>
+<a href="http://howtoforge.com/apache_subversion_repository">[svn with apache]</a>
+<br/>
+<br/>
+<a href="http://netpbm.sourceforge.net/gettingsubversion.html">Here</a> you can find the following info:
+<blockquote>
+One thing you <i>do</i> need, though, is SSL capability. So you must use the <b>--with-ssl</b> option to <i>configure</i> and <i>configure</i> must find the Openssl library installed. If you don't need a language other than English, you can simplify things a little more with the <b>--disable-nls</b> option. 
+</blockquote>
+<span class="fullpost">
+Without <b>--disable-nls</b> svn binary had locales related problems (undefined <i>__ctype_*</i> symbols)
+<pre class="code">
+dev# wget <a href="http://subversion.tigris.org/downloads/subversion-deps-1.4.6.tar.gz" >http://subversion.tigris.org/downloads/subversion-deps-1.4.6.tar.gz</a>
+dev# tar xvzf subversion-deps-1.4.6.tar.gz
+dev# wget <a href="http://subversion.tigris.org/downloads/subversion-1.4.6.tar.gz" >http://subversion.tigris.org/downloads/subversion-1.4.6.tar.gz</a>
+dev# tar xvzf subversion-1.4.6.tar.gz
+dev# cd subversion-1.4.6
+dev# ./configure --prefix=/mnt/C/sys <b>--enable-shared --without-neon 
+--with-swig --with-ssl --disable-nls --with-apxs=/mnt/C/sys/apache2/bin/apxs 
+--with-apr=/mnt/C/sys/apache2 --with-apr-util=/mnt/C/sys/apache2 
+--with-python=/mnt/C/sys/bin/python2.5 --with-perl=/mnt/C/sys/lib/perl5/5.8.8 --enable-maintainer-mode</b>
+dev# make
+</pre>
+Generate and build swig python bindings
+<pre class="code">
+dev# make swig-py
+</pre>
+<b>Libtool error: unrecognized option <i>'-DLINUX=2'</i></b><br/> 
+=> used swig version 1.3.27 instead of 1.3.29, rebuilt both swig and svn and problem was fixed.
+<br/>
+<b>Libtool error: command <i>i386-linux-gcc</i> not found</b><br/> 
+=> following hack helped to solve it 
+<pre class="code">
+dev# ln -s /usr/bin/i386-linux-uclibc-gcc i386-linux-gcc
+</pre>
+Generate and build swig perl bindings
+<pre class="code">
+dev# make swig-pl
+</pre>
+Install
+<pre class="code">
+dev# make install
+dev# make install-swig-py
+dev# make install-swig-pl
+</pre>
+Make sure that whatever directory the bindings got installed is accessible. You can use PYTHONPATH variable or the following approach:
+<pre class="code">
+dev# echo /mnt/C/sys/lib/svn-python > /mnt/C/sys/lib/python2.5/site-packages/subversion.pth
+</pre>
+<b>Test installation</b>
+<br/>
+You can try subversion tests (but for me it did not succeed completely and I have not solved it yet):
+<pre class="code">
+dev# make check-swig-py
+dev# make check-swig-pl
+</pre>
+At least following should succeed:
+<pre class="code">
+dev# python -c "from svn import client"
+dev# cd tools/examples
+dev# python svnlook.py &lt;some-svn-repository&gt;
+</pre>
+Hack for the deployment (in order to be included in generated tarball) - without it some files are older and do not get to the resulting package:
+<pre class="code">
+dev# find /mnt/C/sys/lib/perl5/ -path *SVN* -type f -exec touch {} \;
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-6676115977574456364?l=filodej.blogspot.com' alt='' /></div>

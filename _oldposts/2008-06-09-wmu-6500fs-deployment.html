@@ -1,0 +1,116 @@
+--- 
+name: wmu-6500fs-deployment
+layout: post
+time: 2008-06-09 08:34:00 +02:00
+title: WMU-6500FS - Deployment
+---
+For easy and convenient deployment I have created a simple script creating an appropriate package based on a timestamp. It deploys all the files newer than a ".start_time" file created just before an installation process. The script is very simple, just in case one is lazy to create his own, here is the <a href="http://philodej.googlepages.com/filopack.sh">[link]</a> to download it.
+<br/>
+<br/>
+<span class="fullpost">
+I got used to following sequence of operations whenever I am installing a new piece of software:
+<ol>
+<li>download software package</li>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget &lt;sw-src-uri&gt;
+dev# tar xzvf &lt;sw-src-package&gt;
+</pre>
+<li>configure and build</li>
+<pre class="code">
+dev# cd &lt;sw-src-dir&gt;
+dev# ./configure --prefix=/mnt/C/sys &lt;possibly-other-options&gt;
+dev# make
+</pre>
+<li>create timestamp, install and create resulting binary package</li>
+<pre class="code">
+dev# echo &gt; /mnt/C/.start_time
+dev# make install
+dev# cd /mnt/C
+dev# ./filopack.sh &lt;package-name&gt;
+</pre>
+<li>upload resulting package to the box</li>
+<pre class="code">
+deb# scp &lt;dev-root&gt;/mnt/C/&lt;package-name&gt;.tgz root@storage:/mnt/C/
+</pre>
+<li>install the resulting package on the box</li>
+<pre class="code">
+box# cd /mnt/C</span>
+box# tar xzvf &lt;package-name&gt;.tgz</span>
+</pre>
+</ol>
+
+<h3>Script usage examples</h3>
+Help and usage
+<pre class="code">
+dev# ./filopack.sh -h
+usage: filopack.sh [OPTIONS] &lt;package-name&gt;
+
+ Based on previously created timestamp (.start_time file) generates
+ archive &lt;package-name&gt;.&lt;fmt&gt; along with file list &lt;package-name&gt;.lst.
+
+ Available options:
+         -o &lt;fmt&gt; ... archive format ('tar', 'tgz', 'tbz2', 'lst' currently supported)
+                 ('lst' just generates .lst file and prints filenames)
+         -p ... prefix path ('sys/' by default)
+         -f ... filter ('-newer .start_time' by default, '' performs no filtering)
+         -r ... reuse the previously generated filename list (.lst file)
+         -v ... prints version
+         -h ... prints this help message
+</pre>
+Deployment of the <i>file</i> (unix command) - tar.bz2 archive is created by default.
+<pre class="code">
+dev# echo > /mnt/C/.start_time
+dev# make install
+dev# cd /mnt/C
+dev# ./filopack.sh file-4.24
+-rwxr-xr-x root/root     39355 2008-06-16 14:46:50 sys/bin/file
+-rwxr-xr-x root/root    285972 2008-06-16 14:46:49 sys/lib/libmagic.so.1.0.0
+lrwxrwxrwx root/root         0 2008-06-16 14:46:49 sys/lib/libmagic.so.1 -&gt; libmagic.so.1.0.0
+lrwxrwxrwx root/root         0 2008-06-16 14:46:49 sys/lib/libmagic.so -&gt; libmagic.so.1.0.0
+-rwxr-xr-x root/root       803 2008-06-16 14:46:49 sys/lib/libmagic.la
+-rw-r--r-- root/root    396680 2008-06-16 14:46:49 sys/lib/libmagic.a
+-rw-r--r-- root/root     16176 2008-06-16 14:46:51 sys/share/man/man1/file.1
+-rw-r--r-- root/root      7555 2008-06-16 14:46:51 sys/share/man/man3/libmagic.3
+-rw-r--r-- root/root     16504 2008-06-16 14:46:51 sys/share/man/man4/magic.4
+-rw-r--r-- root/root   1627584 2008-06-16 14:46:50 sys/share/file/magic.mgc
+-rw-r--r-- root/root      3547 2008-06-16 14:46:50 sys/include/magic.h
+</pre>
+Deployment of the same package - this time the file list is reused and gzip archive is used fir resulting archive.
+<pre class="code">
+dev# ./filopack.sh -o tgz -r file-4.24
+-rwxr-xr-x root/root     39355 2008-06-16 14:46:50 sys/bin/file
+-rwxr-xr-x root/root    285972 2008-06-16 14:46:49 sys/lib/libmagic.so.1.0.0
+lrwxrwxrwx root/root         0 2008-06-16 14:46:49 sys/lib/libmagic.so.1 -&gt; libmagic.so.1.0.0
+lrwxrwxrwx root/root         0 2008-06-16 14:46:49 sys/lib/libmagic.so -&gt; libmagic.so.1.0.0
+-rwxr-xr-x root/root       803 2008-06-16 14:46:49 sys/lib/libmagic.la
+-rw-r--r-- root/root    396680 2008-06-16 14:46:49 sys/lib/libmagic.a
+-rw-r--r-- root/root     16176 2008-06-16 14:46:51 sys/share/man/man1/file.1
+-rw-r--r-- root/root      7555 2008-06-16 14:46:51 sys/share/man/man3/libmagic.3
+-rw-r--r-- root/root     16504 2008-06-16 14:46:51 sys/share/man/man4/magic.4
+-rw-r--r-- root/root   1627584 2008-06-16 14:46:50 sys/share/file/magic.mgc
+-rw-r--r-- root/root      3547 2008-06-16 14:46:50 sys/include/magic.h
+</pre>
+Archive of the Mesa libraries is created (timestamp filtering is disabled and prefix pattern is used for the file selection).
+<pre class="code">
+dev# ./filopack.sh -p 'sys/lib/lib[OG]*' -f '' Mesa-7.0.3
+lrwxrwxrwx root/root         0 2008-06-16 14:07:09 sys/lib/libGL.so -&gt; libGL.so.1
+lrwxrwxrwx root/root         0 2008-06-16 14:07:09 sys/lib/libGL.so.1 -&gt; libGL.so.1.5.070003
+-rwxr-xr-x root/root  20101208 2008-06-16 14:07:09 sys/lib/libGL.so.1.5.070003
+-rw-r--r-- root/root         0 2008-06-16 14:37:35 sys/lib/libGL.so.1.lst
+lrwxrwxrwx root/root         0 2008-06-16 14:07:24 sys/lib/libGLU.so -&gt; libGLU.so.1
+lrwxrwxrwx root/root         0 2008-06-16 14:07:24 sys/lib/libGLU.so.1 -&gt; libGLU.so.1.3.070003
+-rwxr-xr-x root/root   2875754 2008-06-16 14:07:24 sys/lib/libGLU.so.1.3.070003
+lrwxrwxrwx root/root         0 2008-06-16 14:07:24 sys/lib/libGLw.so -&gt; libGLw.so.1
+lrwxrwxrwx root/root         0 2008-06-16 14:07:24 sys/lib/libGLw.so.1 -&gt; libGLw.so.1.0.0
+-rwxr-xr-x root/root    127359 2008-06-16 14:07:24 sys/lib/libGLw.so.1.0.0
+lrwxrwxrwx root/root         0 2008-06-16 14:07:10 sys/lib/libOSMesa.so -&gt; libOSMesa.so.6
+lrwxrwxrwx root/root         0 2008-06-16 14:07:10 sys/lib/libOSMesa.so.6 -&gt; libOSMesa.so.6.5.3
+-rwxr-xr-x root/root    252524 2008-06-16 14:07:10 sys/lib/libOSMesa.so.6.5.3
+</pre>
+This time the whole X11 distribution is archived (all files in given sub-tree and no timestamp filtering).
+<pre class="code">
+dev# ./filopack.sh -p sys/X11R7/ -f '' XOrg.7.1
+...
+</pre>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-7373786265633419195?l=filodej.blogspot.com' alt='' /></div>

@@ -1,0 +1,476 @@
+--- 
+name: wmu-6500fs-gtk-21014
+layout: post
+time: 2008-06-27 12:51:00 +02:00
+title: WMU-6500FS - GTK+ 2.10.14
+---
+<h3>GTK+ 2.10.14</h3>
+<a href="http://www.gtk.org">[Home page]</a> 
+<a href="http://www.linuxfromscratch.org/blfs/view/svn/x/gtk2.html">[List of dependencies]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/gtk-2.10.14.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/gtk-2.10.14.lst">[list files]</a>
+<br/>
+<br/>
+<b>Related stuff:</b><br/>
+<a href="http://philodej.googlepages.com/libxcb-1.1.tar.bz2">[XCB]</a>
+<a href="http://philodej.googlepages.com/xcb-util-0.2.tar.bz2">[XCB util]</a>
+<a href="http://philodej.googlepages.com/gperf-3.0.3.tar.bz2">[gperf]</a>
+<a href="http://philodej.googlepages.com/cairo-1.6.4.tar.bz2">[cairo]</a>
+<a href="http://philodej.googlepages.com/pango-1.21.3.tar.bz2">[pango]</a>
+<a href="http://philodej.googlepages.com/tiff-3.8.2.tar.bz2">[libtiff]</a>
+<a href="http://philodej.googlepages.com/fontconfig-2.6.0.tar.bz2">[fontconfig]</a>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SGLxJ2YNwII/AAAAAAAABdU/KNfroh2bzSs/s1600-h/gtk.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SGLxJ2YNwII/AAAAAAAABdU/KNfroh2bzSs/s400/gtk.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5215996469966651522" /></a>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://ftp.gnome.org/pub/gnome/sources/gtk+/2.10/gtk+-2.10.14.tar.bz2">http://ftp.gnome.org/pub/gnome/sources/gtk+/2.10/gtk+-2.10.14.tar.bz2</a>
+dev# tar xjvf gtk+-2.10.14.tar.bz2
+dev# ./configure --prefix=/mnt/C/sys
+gdkdrawable-x11.c:32:24: cairo-xlib.h: No such file or directory
+</pre>
+Not much of a progress. It seems we need to build the <i>cairo</i> library. <a href="#cairo">Here are the details.</a>
+<br/>
+<br/>
+Now we can try to re-configure...
+<pre class="code">
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+configure: error:
+*** Checks for TIFF loader failed. You can build without it by passing
+*** --without-libtiff to configure but some programs using GTK+ may
+*** not work properly
+</pre>
+We can build it with the <i>--without-libtiff</i> option or we have to install the <a href="#libtiff">TIFF library</a>.
+<br/>
+<br/>
+Once it is done we can re-configure and make:
+<pre class="code">
+dev# export LDFLAGS=-L/mnt/C/sys/lib
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+dev# make
+...
+ gcc -DHAVE_CONFIG_H -I. -I. -I../.. -DG_LOG_DOMAIN=\"Gdk\" -DGDK_COMPILATION 
+-I../.. -I../../gdk -I../../gdk -DGDK_PIXBUF_DISABLE_DEPRECATED 
+-DG_DISABLE_CAST_CHECKS -pthread -I/usr/include/glib-2.0 
+-I/usr/lib/glib-2.0/include -I/usr/include/pango-1.0 -I/usr/include/cairo 
+-I/mnt/C/sys/X11/include/ -g -O2 -Wall -MT gdkdrawable-x11.lo -MD -MP -MF 
+.deps/gdkdrawable-x11.Tpo -c gdkdrawable-x11.c  -fPIC -DPIC -o 
+libs/gdkdrawable-x11.o
+gdkdrawable-x11.c:32:24: cairo-xlib.h: No such file or directory
+</pre>
+It seems some modules try to directly include the <i>cairo</i> header files as they were placed at an include path, but that is not the case.
+<pre class="code">
+dev# export CXXFLAGS=-I/mnt/C/sys/X11/include/cairo
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+dev# make
+In file included from gdkdrawable-x11.c:32:
+/mnt/C/sys/X11/include/cairo/cairo-xlib.h:97:3: #error Cairo was not compiled with support for the xlib backend
+</pre>
+It seems we have to build the <i>XCB</i> library (<a href="#xcb">Here</a> is the build sequence) and then re-build the <i>cairo</i> library properly.
+<br/>
+<br/>
+Now we are ready to proceed with GTK:
+<pre class="code">
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+...
+configure:31390: gcc -o conftest -I/mnt/C/sys/X11/include/cairo -Wall -I/mnt/C/sys/X11/include
+-L/mnt/C/sys/lib conftest.c -L/mnt/C/sys/X11/lib -lXext -lXrender -lX11  -lintl >&5
+/mnt/C/sys/X11/lib/libxcb-xlib.so.0: undefined reference to `backtrace_symbols'
+/mnt/C/sys/X11/lib/libxcb-xlib.so.0: undefined reference to `backtrace'
+</pre>
+It seems that xcb is not properly configured, it needs a backtrace support (not provided by uClibc). So we have to <a href="#xcb">rebuild 
+
+<i>libxcb</i></a> with the <i>HAVE_BACKTRACE</i> configure hack.
+<br/>
+<br/>
+Let's try it again, do not worry, we are almost there ;-)
+<pre class="code">
+dev# make clean
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+dev# make
+...
+/bin/sh ../libtool --mode=link gcc  -I/mnt/C/sys/X11/include/cairo -Wall  
+-L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib -o gtk-query-immodules-2.0 queryimmodules.o 
+libgtk-x11-2.0.la ../gdk-pixbuf/libgdk_pixbuf-2.0.la ../gdk/libgdk-x11-2.0.la 
+gcc -I/mnt/C/sys/X11/include/cairo -Wall -o .libs/gtk-query-immodules-2.0 
+queryimmodules.o  -L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib  ./.libs/libgtk-x11-2.0.so 
+/usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so -L/mnt/C/sys/X11/lib 
+/usr/lib/libatk-1.0.so ../gdk-pixbuf/.libs/libgdk_pixbuf-2.0.so 
+../gdk/.libs/libgdk-x11-2.0.so /usr/lib/libpangocairo-1.0.so /usr/lib/libcairo.so 
+/usr/lib/libpixman-1.so /usr/lib/libpangoft2-1.0.so /usr/lib/libpango-1.0.so 
+...
+/usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so: undefined reference to `cairo_xlib_surface_create_for_bitmap'
+/usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so: undefined reference to `cairo_xlib_surface_create'
+/usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so: undefined reference to `cairo_xlib_surface_set_size'
+collect2: ld returned 1 exit status
+</pre>
+It seems that the static linker did not find some <i>cairo</i> symbols. 
+<br/>
+Let's look to <i>gdk</i> to be sure what <i>cairo</i> symbols are referenced:
+<pre class="code">
+dev# nm /usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so | grep cairo_xlib_surface_create
+         U cairo_xlib_surface_create
+         U cairo_xlib_surface_create_for_bitmap
+</pre>
+Let's look at the <i>cairo</i> library why they are missing...
+<pre class="code">
+dev# nm /mnt/C/sys/X11/lib/libcairo.so | grep cairo_xlib_surface_create
+...
+0005b7d3 T cairo_xlib_surface_create
+0005b834 T cairo_xlib_surface_create_for_bitmap
+...
+</pre>
+It seems the symbols are there. If they was not there it would be due to incorrect cairo configuration, namely missing <i>--with-x</i> configure 
+
+script option (see <a href="http://archive.netbsd.se/?ml=freebsd-gnome&a=2006-04&t=1937183">this mail</a>). However I think that in this regard we have the <i>cairo</i> configured properly.
+<br/>
+<br/>
+Not sure what is actually going on here, maybe it is the order of libraries passed to static linker (the fact that the <i>libcairo.so</i> goes 
+
+<b>after</b> the libgdk-x11-2.0.so):
+<pre class="code">
+gcc -I/mnt/C/sys/X11/include/cairo -Wall -o .libs/gtk-query-immodules-2.0 queryimmodules.o
+-L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib ./.libs/libgtk-x11-2.0.so 
+<b>/usr/local/src/gtk+-2.10.14/gdk/.libs/libgdk-x11-2.0.so</b> -L/mnt/C/sys/X11/lib 
+/usr/lib/libatk-1.0.so ../gdk-pixbuf/.libs/libgdk_pixbuf-2.0.so 
+../gdk/.libs/libgdk-x11-2.0.so /usr/lib/libpangocairo-1.0.so <b>/usr/lib/libcairo.so</b> 
+/usr/lib/libpixman-1.so /usr/lib/libpangoft2-1.0.so /usr/lib/libpango-1.0.so 
+/usr/lib/libpng12.so /mnt/C/sys/X11/lib/libxcb-render-util.so /mnt/C/sys/X11/lib/libxcb-render.so 
+/mnt/C/sys/X11/lib/libpixman-1.so /usr/lib/libfontconfig.so /usr/lib/libfreetype.so 
+-lz /usr/lib/libexpat.so /mnt/C/sys/X11/lib/libXinerama.so 
+/mnt/C/sys/X11/lib/libXrandr.so /mnt/C/sys/X11/lib/libXext.so 
+...
+</pre>
+In any case the following hack "fixed" the problem:
+<pre class="code">
+dev# make clean
+dev# export LDFLAGS="-L/mnt/C/sys/lib -L/mnt/C/sys/X11/lib <b>/mnt/C/sys/X11/lib/libcairo.so</b>"
+dev# ./configure --prefix=/mnt/C/sys/X11/ <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+dev# make
+</pre>
+
+<b>Test installation:</b>
+<br/>
+<br/>
+Now we are ready to test the installation:
+<pre class="code">
+dev# /mnt/C/sys/X11/bin/gtk-demo
+...
+(gtk-demo:25684): Pango-CRITICAL **: No fonts found:
+This probably means that the fontconfig
+library is not correctly configured. You may need to
+edit the fonts.conf configuration file. More information
+about fontconfig can be found in the fontconfig(3) manual
+page and on http://fontconfig.org
+...
+</pre>
+The application seems as follows:
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SGTHfyAviKI/AAAAAAAABd0/It7SHsbyCpo/s1600-h/gtk-no-fonts.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SGTHfyAviKI/AAAAAAAABd0/It7SHsbyCpo/s400/gtk-no-fonts.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5216513617216637090" /></a>
+<br/>
+The fonts are compiled and deployed but not installed correctly, when we <a href="#fontconfig">build the <i>fontconfig</i></a> then we can perform the following test:
+<pre class="code">
+dev# fc-list
+dev#
+</pre>
+We have to create a link to <i>/usr/share/</i> directory to make fonts visible:
+<pre class="code">
+dev# ln -s /mnt/C/sys/X11/lib/X11/fonts/ /usr/share/fonts
+dev# fc-cache
+dev# fc-list
+Luxi Serif:style=Regular
+LucidaBright:style=Italic
+Utopia:style=Bold Italic
+Serto Malankara:style=Regular
+...
+</pre>
+The startup time of the <i>gtk-demo</i> application (as well as for example simple <i>xclock</i>) increased significantly. It seems that number of 
+
+fonts greatly influences the x-apps' startup times. When we (<a herf="http://www.linuxfromscratch.org/blfs/view/svn/x/x7font.html">according to 
+
+this source</a>) limit the number of linked fonts (e.g. only OTF and TTF) (see alsho <a 
+
+href="http://efod.se/writings/linuxbook/html/x-tip.html">this tip</a>), the situation is slightly better:
+<pre class="code">
+box# rm /usr/share/fonts
+box# mkdir /usr/share/fonts
+box# ln -sn $XORG_PREFIX/lib/X11/fonts/OTF /usr/share/fonts/X11-OTF &&
+box# ln -sn $XORG_PREFIX/lib/X11/fonts/TTF /usr/share/fonts/X11-TTF
+</pre>
+Still the x-client applications are relatively slow, turning the ssh compression helped a bit, but more evaluation and benchmarking is needed...
+<br/>
+<a name="xcb"></a>
+<h3>libxcb-1.1</h3>
+<a href="http://www.linuxfromscratch.org/blfs/view/svn/x/libxcb.html">[XCB dependencies]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/libxcb-1.1.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/libxcb-1.1.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+We can download <i>XCB</i> via the git_xorg.sh script (for details see XOrg related <a href="http://filodej.blogspot.com/2008/06/wmu-6500fs-xorg-71-teaser.html">post</a>) or we can do it by hand. As it is described here. First we 
+
+have to download and build the protocol headers and pthread stubs (on linux it should be just stubs and nothing more).
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://xcb.freedesktop.org/dist/xcb-proto-1.1.tar.gz">http://xcb.freedesktop.org/dist/xcb-proto-1.1.tar.gz</a>
+dev# tar xzvf xcb-proto-1.1.tar.gz
+dev# ./configure --prefix=/mnt/C/sys/X11
+dev# make
+dev# cp xcb-proto.pc /mnt/C/sys/X11/lib/pkgconfig/
+dev# cd ..
+dev# wget <a href="http://xcb.freedesktop.org/dist/libpthread-stubs-0.1.tar.bz2">http://xcb.freedesktop.org/dist/libpthread-stubs-0.1.tar.bz2</a>
+dev# tar xjzf libpthread-stubs-0.1.tar.bz2
+dev# cd libpthread-stubs-0.1
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+dev# make install
+</pre>
+Now we can proceed to build the <i>XCB</i> itself:
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://xcb.freedesktop.org/dist/libxcb-1.1.tar.bz2">http://xcb.freedesktop.org/dist/libxcb-1.1.tar.bz2</a>
+dev# tar xjvf libxcb-1.1.tar.bz2
+dev# cd libxcb-1.1
+</pre>
+In order to configure the it was necessary to set the <i>PKG_CONFIG_PATH</i> properly. Maybe it is a good idea to have it set on every boot... 
+<br/>
+For now we just set it one-shot:
+<pre class="code">
+dev# export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/mnt/C/sys/lib/pkgconfig/:/mnt/C/sys/X11/lib/pkgconfig/
+</pre>
+Another problem was with <i>backtrace</i> symbols. During the static linking everything seem ok, but the runtime linker (when an application is 
+
+launched) complains about missing symbols:
+<pre class="code">
+/mnt/C/sys/X11/lib/libxcb-xlib.so.0: undefined reference to `backtrace_symbols'
+/mnt/C/sys/X11/lib/libxcb-xlib.so.0: undefined reference to `backtrace'
+</pre>
+It seems that backtrace support is not implemented in uClibc 0.9.27. Regarding <a href="http://bugs.uclibc.org/view.php?id=101">this ticket</a> it 
+
+should be present since version 0.9.28.
+<br/>
+For now I decided to re-configure the library not to use the backtrace support at all. It is relatively simple - we just backup and alter the 
+
+<i>configure.ac</i> file as follows:
+<pre class="code">
+dev# cat configure.ac | grep backtrace
+AC_CHECK_HEADER([execinfo.h], [AC_DEFINE(HAVE_BACKTRACE,1,[Has backtrace*() needed for retrieving stack traces])])
+dev# cp configure.ac{,.backup}   
+dev# sed -i 's/AC_CHECK_HEADER(\[execinfo.h\],\[AC_DEFINE(HAVE_BACKTRACE/#AC_CHECK_HEADER(\[execinfo.h\],\[AC_DEFINE(HAVE_BACKTRACE/g' configure.ac
+dev# cat configure.ac | grep backtrace
+#AC_CHECK_HEADER([execinfo.h], [AC_DEFINE(HAVE_BACKTRACE,1,[Has backtrace*() needed for retrieving stack traces])])
+</pre>
+One more time we re-configure and rebuild the library:
+<pre class="code">
+dev# make clean
+dev# ./configure --prefix=/mnt/C/sys/X11
+dev# make
+dev# make install
+</pre>
+
+<i>Note:</i> Regarding to the missing <i>backtrace</i> support we can also consider deleting the <i>/usr/include/execinfo.h</i> file instead of 
+
+altering the configuration files. 
+<pre class="code">
+dev# mv /usr/include/execinfo.h{,.deleted}
+</pre>
+I do not know if it is correct solution but it seems logically the file contains just declarations of those backtrace related functions and the fact that is 
+
+it not present fixes the behavior of configure scripts.
+<br/>
+For more info see <a href="http://mailman.powerdns.com/pipermail/pdns-users/2006-August/003680.html">Problems compiling pdns using 
+
+uClibc</a>.
+
+<a name="gperf"></a>
+<h3>gperf-3.0.3</h3>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/gperf-3.0.3.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/gperf-3.0.3.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://ftp.gnu.org/gnu/gperf/gperf-3.0.3.tar.gz">http://ftp.gnu.org/gnu/gperf/gperf-3.0.3.tar.gz</a>
+dev# tar xzvf gperf-3.0.3.tar.gz
+dev# cd gperf-3.0.3
+dev# ./configure --prefix=/mnt/C/sys/
+dev# make
+dev# make install
+</pre>
+
+<a name="xcb-util"></a>
+<h3>xcb-util-0.2</h3>
+<b>Dependencies: </b>
+<a href="#gperf">[gperf]</a> 
+<a href="#xcb">[xcb]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/xcb-util-0.2.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/xcb-util-0.2.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://xcb.freedesktop.org/dist/xcb-util-0.2.tar.bz2">http://xcb.freedesktop.org/dist/xcb-util-0.2.tar.bz2</a>
+dev# tar xjvf xcb-util-0.2.tar.bz2
+dev# ./configure --prefix=/mnt/C/sys/X11
+dev# make
+dev# make install
+</pre>
+
+<a name="cairo"></a>
+<h3>cairo-1.6.4</h3>
+<a href="http://cairographics.org/">[Home page]</a>
+<br/>
+<br/>
+<b>Dependencies: </b>
+<a href="#xcb">[xcb]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/cairo-1.6.4.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/cairo-1.6.4.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://cairographics.org/releases/cairo-1.6.4.tar.gz">http://cairographics.org/releases/cairo-1.6.4.tar.gz</a>
+dev# tar xzvf cairo-1.6.4.tar.gz
+dev# cd cairo-1.6.4
+</pre>
+Simply calling <i>./configure --prefix=/mnt/C/sys/X11</i> does not work with the GTK library, we have to configure the cairo with the Xlib support.
+<pre class="code">
+dev# ./configure --prefix=/mnt/C/sys/X11 <b>--with-x -x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/ --enable-xlib=yes --enable-xlib-xrender=yes --enable-xcb=yes</b>
+cairo (version 1.6.4) will be compiled with the following surface backends:
+  image:         yes (always builtin)
+  Xlib:          yes
+  Xlib Xrender:  yes
+  Quartz:        no (CoreGraphics framework not found)
+  Quartz-image:  no (disabled, use --enable-quartz-image to enable)
+  XCB:           yes
+  Win32:         no (requires a Win32 platform)
+  OS2:           no (disabled, use --enable-os2 to enable)
+  PostScript:    yes
+  PDF:           yes
+  SVG:           yes
+  glitz:         no (disabled, use --enable-glitz to enable)
+  BeOS:          no (disabled, use --enable-beos to enable)
+  DirectFB:      no (disabled, use --enable-directfb to enable)
+
+the following font backends:
+  FreeType:      yes
+  Win32:         no (requires a Win32 platform)
+  Quartz:        no (CoreGraphics framework not found)
+
+the following features:
+  PNG functions: yes
+
+and the following debug options:
+  gcov support:  no
+  test surfaces: no
+  ps testing:    no (requires ghostscript)
+  pdf testing:   no (requires poppler-glib >= 0.8.0)
+  svg testing:   no (requires librsvg-2.0 >= 2.15.0)
+
+using CFLAGS:
+-I/usr/include/freetype2 -I/usr/include/libpng12 -I/mnt/C/sys/X11/include -I/mnt/C/sys/XOrg/include -I/mnt/C/sys/XOrg/include -I/mnt/C/sys/XOrg/include/pixman-1 -Wall -Wsign-compare -Werror-implicit-function-declaration -Wpointer-arith -Wwrite-strings 
+-Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Wpacked -Wswitch-enum -Wmissing-format-attribute 
+-Wno-unused-parameter -Wno-long-long -Winline -fno-strict-aliasing
+
+*** The XCB backend is still under active development and
+*** is included in this release only as a preview. It does not
+*** fully work yet and incompatible changes may yet be made
+*** to XCB-backend specific API.
+
+dev# make
+dev# make install
+</pre>
+
+<a name="libtiff"></a>
+<h3>libtiff 3.8.2</h3>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/tiff-3.8.2.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/tiff-3.8.2.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="ftp://ftp.remotesensing.org/pub/libtiff/tiff-3.8.2.tar.gz">ftp://ftp.remotesensing.org/pub/libtiff/tiff-3.8.2.tar.gz</a>
+dev# tar xzvf tiff-3.8.2.tar.gz
+dev# ./configure --prefix=/mnt/C/sys
+dev# make
+dev# make install
+</pre>
+
+<a name="pango"></a>
+<h3>pango-1.21.3</h3>
+<a href="http://www.pango.org/">[Home page]</a>
+<br/>
+<br/>
+<b>Dependencies: </b>
+<a href="#cairo">[cairo]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/pango-1.21.3.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/pango-1.21.3.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://ftp.gnome.org/pub/GNOME/sources/pango/1.21/pango-1.21.3.tar.bz2">http://ftp.gnome.org/pub/GNOME/sources/pango/1.21/pango-1.21.3.tar.bz2</a>
+dev# tar xjvf pango-1.21.3.tar.bz2
+dev# cd pango-1.21.3
+dev# ./configure --prefix=/mnt/C/sys/X11 <b>--with-x --x-includes=/mnt/C/sys/X11/include/ 
+--x-libraries=/mnt/C/sys/X11/lib/</b>
+dev# make
+dev# make install
+</pre>
+
+<a name="fontconfig"></a>
+<h3>fontconfig-2.6.0</h3>
+<a href="http://fontconfig.org">[Home page]</a>
+<br/>
+<br/>
+<b>Build results:</b>
+<a href="http://philodej.googlepages.com/fontconfig-2.6.0.tar.bz2">[binary]</a>
+<a href="http://philodej.googlepages.com/fontconfig-2.6.0.lst">[list files]</a>
+<br/>
+<br/>
+<b>Build sequence:</b>
+We have to configure it to look at the <i>/mnt/C/sys/X11/etc/fonts/</i> directory (instead of default <i>/etc/fonts/</i>) since the /etc directory is 
+
+read-only (we are not even able to create a symlink).
+<pre class="code">
+dev# cd /usr/local/src
+dev# wget <a href="http://fontconfig.org/release/fontconfig-2.6.0.tar.gz">http://fontconfig.org/release/fontconfig-2.6.0.tar.gz</a>
+dev# tar xzvf fontconfig-2.6.0.tar.gz
+dev# cd fontconfig-2.6.0
+dev# ./configure --prefix=/mnt/C/sys/X11 <b>--with-confdir=/mnt/C/sys/X11/etc/fonts/</b>
+dev# make 
+dev# make install
+</pre>
+
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-496095877248159954?l=filodej.blogspot.com' alt='' /></div>

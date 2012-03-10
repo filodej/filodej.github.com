@@ -1,0 +1,270 @@
+--- 
+name: wmu-6500fs-deluge-torrent-part-iii
+layout: post
+time: 2008-08-06 11:22:00 +02:00
+title: WMU-6500FS - Deluge torrent (part III)
+---
+<h3>Overview</h3>
+In <a href="http://filodej.blogspot.com/2008/07/wmu-6500fs-deluge-torrent-part-ii.html">previous part</a> I tried to workaround the issue with uncaught exceptions (due to 
+the GCC mis-configuration), but after the long effort (and after a discovery of a
+separate linker problem) 
+I decided to <a href="http://filodej.blogspot.com/2008/08/wmu-6500fs-gcc-412.html">rebuild the GCC compiler.</a>
+<br/>
+Now with the new (properly configured) compiler we are ready to finish the deluge build process and finish the installation.
+<br/>
+In <a href="http://forum.deluge-torrent.org/viewtopic.php?f=8&t=7535&start=0&st=0&sk=t&sd=a">this post</a> there are described new possibilities how to use the new version of the deluge torrent client, for me especially attractive is the "daemon" mode.
+<br/>
+<h3>Build result</h3>
+<a href="http://filodej.ic.cz/filopack/.filopack/deluge-0.9.03.lst">[file list]</a>
+<br/>
+
+<h3>Screenshots</h3>
+Deluge daemon and GTK client both running on <i>WMU-6500fs</i> box 
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlvNgFesyI/AAAAAAAABnM/D73cEJbfCks/s1600-h/deluge-storage-local-select-torrent.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlvNgFesyI/AAAAAAAABnM/D73cEJbfCks/s400/deluge-storage-local-select-torrent.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231334719909442338" /></a>
+<br/>
+GTK and web client running on <i>Ubuntu</i>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlubcNLy3I/AAAAAAAABm8/ISmKNKThsY4/s1600-h/deluge-ubu-gtk-web.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlubcNLy3I/AAAAAAAABm8/ISmKNKThsY4/s400/deluge-ubu-gtk-web.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231333859874556786" /></a>
+<br/>
+GTK and web client running on <i>Windows XP</i>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SJluqma_R8I/AAAAAAAABnE/2yOE0H_79vQ/s1600-h/deluge-win-gtk-web.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SJluqma_R8I/AAAAAAAABnE/2yOE0H_79vQ/s400/deluge-win-gtk-web.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231334120314849218" /></a>
+<br/>
+<h3>Info sources:</h3> 
+<a href="http://forum.deluge-torrent.org/viewtopic.php?f=8&t=7535&start=0&st=0&sk=t&sd=a">[Deluge News]</a>
+<a href="http://dev.deluge-torrent.org/wiki/Faq">[Deluge FAQ]</a>
+<br/>
+<br/>
+<span class="fullpost">
+<b>Build sequence:</b>
+<pre class="code">
+dev# cd /usr/local/src/deluge-0.9.03
+dev# python setup.py clean
+dev# python setup.py build
+dev# python setup.py install --prefix=/mnt/C/sys/
+</pre>
+Now, when we test the new instalation, there is another problem with exception handling:
+<pre class="code">
+dev# deluge
+[INFO    ] 00:13:19 main:84 Deluge ui 0.9.03
+...
+[DEBUG   ] 00:13:23 configmanager:88 Getting config 'gtkui.conf'
+can't resolve symbol '_Unwind_Resume_or_Rethrow' 4.1.2
+</pre>
+With the deluge daemon the problem is the same:
+<pre class="code">
+dev# deluged
+can't resolve symbol _Unwind_Resume_or_Rethrow' 4.1.2
+</pre>
+It seems there are missing symbols for the exception unwinding. Let's look
+at the libtorrent dependencies:
+<pre class="code">
+dev# cd /usr/local/src/deluge-0.9.03
+dev# ldd build/lib.linux-i686-2.5/deluge/libtorrent.so
+        libboost_filesystem-gcc33-mt-1_35.so.1.35.0 => /mnt/C/sys/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_date_time-gcc33-mt-1_35.so.1.35.0 => /mnt/C/sys/lib/libboost_date_time-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_iostreams-gcc33-mt-1_35.so.1.35.0 => /mnt/C/sys/lib/libboost_iostreams-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_python-gcc33-mt-1_35.so.1.35.0 => /mnt/C/sys/lib/libboost_python-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libboost_thread-gcc33-mt-1_35.so.1.35.0 => /mnt/C/sys/lib/libboost_thread-gcc33-mt-1_35.so.1.35.0 (0x00000000)
+        libpthread.so.0 => /lib/libpthread.so.0 (0x00000000)
+        libssl.so.0.9.7 => /usr/lib/libssl.so.0.9.7 (0x00000000)
+        libz.so.1 => /lib/libz.so.1 (0x00000000)
+        libpython2.5.so.1.0 => /usr/lib/libpython2.5.so.1.0 (0x00000000)
+        libgcc_s.so.1 => /lib/libgcc_s.so.1 (0x00000000)
+        libc.so.0 => /lib/libc.so.0 (0x00000000)
+        libcrypto.so.0.9.7 => /usr/lib/libcrypto.so.0.9.7 (0x00000000)
+        libdl.so.0 => /lib/libdl.so.0 (0x00000000)
+        libutil.so.0 => /lib/libutil.so.0 (0x00000000)
+        libm.so.0 => /lib/libm.so.0 (0x00000000)
+        /lib/ld-uClibc.so.0 => /lib/ld-uClibc.so.0 (0x00000000)
+</pre>
+And now when we look at the individual symbol dependencies:
+<pre class="code">
+dev# nm -D build/lib.linux-i686-2.5/deluge/libtorrent.so | grep Unwind
+         U _Unwind_SjLj_Register
+         U _Unwind_SjLj_Resume
+         U _Unwind_SjLj_Unregister
+
+dev# nm -D /mnt/C/sys/lib/libboost_filesystem-gcc33-mt-1_35.so.1.35.0 | grep Unwind
+         U _Unwind_Register
+         U _Unwind_Resume
+         U _Unwind_Unregister
+</pre>
+... It is clear that I forgot to rebuild the boost library with the new compiler!
+<br />
+Ok, so let's fix it and not forget to activate back the exceptions (comment out the define 
+we previously added to the <i>boost/config/user.hpp</i>):
+<pre class="code">
+dev# cd ../boost_1_35_0
+dev# nano boost/config/user.hpp
+
+    <b>//</b>#define BOOST_NO_EXCEPTIONS
+dev# ./configure --prefix=/mnt/C/sys/
+dev# make
+...patience...
+...found 3940 targets...
+...updating 9 targets...
+...
+...updated 9 targets...
+
+dev# make install
+...found 14676 targets...
+...updating 7 targets...
+...
+...updated 7 targets...
+</pre>
+Now let's go back to deluge and rebuild it:
+<pre class="code">
+dev# cd ../deluge-0.9.03
+dev# python setup.py clean
+dev# python setup.py build
+...
+/mnt/C/sys/lib/gcc/i386-linux-uclibc/4.1.2/../../../../i386-linux-uclibc/bin/ld: cannot find -lboost_filesystem
+collect2: ld returned 1 exit status
+error: command 'gcc' failed with exit status 1
+</pre>
+We have to update the symlinks we previously created for gcc33 version of boost libraries:
+<pre class="code">
+dev# cd /mnt/C/sys/lib
+dev# for i in `ls ./libboost_*-gcc41-mt-1_35.so.1.35.0`; do ln -s $i ${i/%-gcc41-mt-1_35.so.1.35.0/.so}; done
+`./libboost_date_time.so': File exists
+...
+`./libboost_wave.so': File exists
+</pre>
+The links are already there, but we want to rewrite them:
+<pre class="code">
+dev# ls -l libboost_date_time.so
+lrwxrwxrwx  1 root root 44 Jul 23 06:33 libboost_date_time.so -> ./libboost_date_time-gcc33-mt-1_35.so.1.35.0
+dev# for i in `ls ./libboost_*-gcc41-mt-1_35.so.1.35.0`; do ln <b>--force</b> -s $i ${i/%-gcc41-mt-1_35.so.1.35.0/.so}; done
+</pre>
+Now we can proceed with deluge:
+<pre class="code">
+dev# cd /usr/local/src/deluge-0.9.03
+dev# python setup.py build 
+dev# python setup.py install --prefix=/mnt/C/sys
+</pre>
+Ok, it is now installed. When we try it we end up with already known icon issue 
+(<i>sed</i> helps us to solve it):
+<pre class="code">
+dev# deluge
+...
+ line 59, in __init__
+    self.dialog.set_icon(deluge.common.get_logo(32))
+  File "/mnt/C/sys/lib/python2.5/site-packages/deluge-0.9.03-py2.5-linux-i686.egg/deluge/common.py", line 143, in get_logo
+    size, size)
+gobject.GError: Unrecognized image file format
+dev# sed -i 's/deluge.svg/deluge.png/g' /mnt/C/sys/lib/python2.5/site-packages/deluge-0.9.03-py2.5-linux-i686.egg/deluge/common.py
+</pre>
+Next run ended up with segfault:
+<pre class="code">
+dev# deluge
+...
+gtk_icon_theme_load_icon: assertion `GTK_IS_ICON_THEME (icon_theme)' failed
+  self.window.show()
+Segmentation fault
+</pre>
+In order to be able to debug it, I had to deploy it to the box. But after the deployment
+some more problems emerged:
+<pre class="code">
+box# deluge
+Traceback (most recent call last):
+  File "/usr/bin/deluge", line 5, in &lt;module&gt;
+    from pkg_resources import load_entry_point
+  File "/usr/lib/python2.5/site-packages/setuptools-0.6c8-py2.5.egg/pkg_resources.py", line 2561, in &lt;module&gt;
+  File "/usr/lib/python2.5/site-packages/setuptools-0.6c8-py2.5.egg/pkg_resources.py", line 626, in require
+  File "/usr/lib/python2.5/site-packages/setuptools-0.6c8-py2.5.egg/pkg_resources.py", line 524, in resolve
+pkg_resources.DistributionNotFound: deluge==0.9.03
+</pre>
+... we have to create a path to deluge egg:
+<pre class="code">
+box# cd /mnt/C/sys/lib/python2.5/site-packages
+box# echo "./deluge-0.9.03-py2.5-linux-i686.egg" > deluge.pth
+</pre>
+Then I noticed following wierd error:
+<pre class="code">
+box# deluge
+...
+gobject.GError: Failed to open file 
+
+'/tmp/mnt/C/sys/lib/python2.5/site-packages/deluge-0.9.03-py2.5-linux-i686.egg/deluge/data/pixmaps/seeding16.png': No such file or directory
+</pre>
+... do not know why, two files were untarred with a wrong name (with "0000644" postfix), quick fix:
+<pre class="code">
+box# mv /tmp/mnt/C/sys/lib/python2.5/site-packages/deluge-0.9.03-py2.5-linux-i686.egg/deluge/data/pixmaps/seeding16.png{0000644,}
+</pre>
+... then it seems we successfully replicated the crash:
+<pre class="code">
+box# deluge
+...
+rning: gtk_icon_theme_load_icon: assertion `GTK_IS_ICON_THEME (icon_theme)' failed
+  self.window.show()
+Segmentation fault
+</pre>
+Let's start debugging:
+<pre class="code">
+box# gdbserver colinux:2345 `which python` `which deluge`
+</pre>
+... and attach with debugger remotely:
+<pre class="code">
+dev# gdb `which python`
+...
+(gdb) target remote storage:2345
+(gdb) cont
+Continuing.
+[New Thread 1024]
+
+Program received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 1024]
+0x408c1572 in render_icon_name_pixbuf () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+(gdb) where
+#0  0x408c1572 in render_icon_name_pixbuf () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+#1  0x408c1736 in find_and_render_icon_source () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+#2  0x408c1992 in gtk_icon_set_render_icon () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+#3  0x40a61ded in gtk_widget_render_icon () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+#4  0x408e0499 in gtk_image_calc_size () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+#5  0x408e061e in gtk_image_size_request () from /mnt/C/sys/X11/lib/libgtk-x11-2.0.so.0
+...
+</pre>
+Do not know why the exactly <i>render_icon_name_pixbuf</i> function crashed, but I noticed
+that I was not running the Xming server, when I started it, the problem was gone.
+<br/>
+Another problem - missing <i>__cxa_pure_virtual</i> symbol:
+<pre class="code">
+box# deluged
+/usr/bin/python: can't resolve symbol '__cxa_pure_virtual'
+</pre>
+... was "solved" with dirty <i>LD_PRELOAD</i> workaround, then there was another missing symbol
+'BIO_free':
+<pre class="code">
+box# LD_PRELOAD=/usr/lib/libstdc++.so.6 deluged
+/usr/bin/python: can't resolve symbol <i>BIO_free</i>
+</pre>
+... pre-loading <i>libssl</i> moved us forward to next missing symbol 
+'_ZN5boost6system18get_posix_categoryEv':
+<pre class="code">
+box# LD_PRELOAD="/usr/lib/libstdc++.so.6 /usr/lib/libssl.so.0.9.7" deluged
+/usr/bin/python: can't resolve symbol <i>_ZN5boost6system18get_posix_categoryEv</i>
+</pre>
+Have no idea what exactly is going on here (and would be pleased if anybody 
+described it to me), but as a workaround the following helped:
+<pre class="code">
+box# LD_PRELOAD="/usr/lib/libssl.so.0.9.7 /usr/lib/libboost_filesystem-gcc41-mt-1_35.so.1.35.0" deluged
+</pre>
+The same pair of libraries I am pre-loading for the deluge GUI.
+<h3>Setup</h3>
+Finally I was able to run deluge, but yet, I forgot to create symlinks to font directories:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SJlwZ6bcBxI/AAAAAAAABnU/iPgnv_T7Fkc/s1600-h/deluge-storage-missing-fonts.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SJlwZ6bcBxI/AAAAAAAABnU/iPgnv_T7Fkc/s400/deluge-storage-missing-fonts.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231336032650921746" /></a>
+<br/>
+For details see <a href="http://www.linuxfromscratch.org/blfs/view/svn/x/x7font.html">this page</a>.
+<pre class="code">
+box# mkdir /usr/share/fonts
+box# ln -sn /mnt/C/sys/X11/lib/X11/fonts/OTF /usr/share/fonts/X11-OTF
+box# ln -sn /mnt/C/sys/X11/lib/X11/fonts/TTF /usr/share/fonts/X11-TTF
+</pre>
+The next thing I set up was to allow remote connections:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SJlxKT5GpKI/AAAAAAAABnc/dCM0ENKrsQk/s1600-h/deluge-storage-local-setup.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SJlxKT5GpKI/AAAAAAAABnc/dCM0ENKrsQk/s400/deluge-storage-local-setup.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231336864119956642" /></a>
+Then on client machines - running <i>Win XP</i> and <i>Ubuntu</i> in my case - in order to be able to remotely connect to the deluge daemon running on the <i>WMU-6500fs</i> box - I had to disable the classic mode:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlzAXc_EeI/AAAAAAAABns/5FY_yg3Hvyo/s1600-h/deluge-win-classic-mode.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlzAXc_EeI/AAAAAAAABns/5FY_yg3Hvyo/s400/deluge-win-classic-mode.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231338892300325346" /></a>
+... and select storage as a default host in <i>Connection Manager</i>:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlztuUm07I/AAAAAAAABn0/M9o3jHd1peg/s1600-h/deluge-win-connecting.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJlztuUm07I/AAAAAAAABn0/M9o3jHd1peg/s400/deluge-win-connecting.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231339671533310898" /></a>
+As can be seen at following screenshot, the memory consumption is relatively high, but when I am not running web gui on the box (just deluged daemon) and am connecting to it from other computers, it is very stable and running smoothly.
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJl1GAX8VNI/AAAAAAAABn8/gXYY9968mIo/s1600-h/deluge-top.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SJl1GAX8VNI/AAAAAAAABn8/gXYY9968mIo/s400/deluge-top.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5231341188207629522" /></a>
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-8486918174592738807?l=filodej.blogspot.com' alt='' /></div>
