@@ -3,6 +3,12 @@ layout: default
 ---
 <div id="post">
 {{ content }}
+
+{% if page.updated_at %}
+<br/>
+<em>Updated at {{ page.updated_at }} </em>
+{% endif %}
+
 </div>
 
 <div id="related">
