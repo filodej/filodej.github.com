@@ -154,27 +154,50 @@ ul.posts {
 
   /* standard */
 
+/*
   #post pre {
     border: 1px solid #ddd;
     background-color: #eef;
     padding: 0 .4em;
   }
+*/
 
   #post ul,
   #post ol {
     margin-left: 1.35em;
   }
 
-  #post code {
+/*
+  code {
     border: 1px solid #ddd;
     background-color: #eef;
     font-size: 85%;
     padding: 0 .2em;
   }
+*/
 
+  #post pre code {
+	  font-size: 9pt;
+	  width: 60em;
+	  padding: 5px;
+	  padding-right: 10px;
+	  padding-left: 10px;
+	  margin: 5px;
+	  margin-top: 20px;
+	  margin-bottom: 30px;
+	  box-shadow: 5px 5px 5px #888;
+	  -webkit-box-shadow: 5px 5px 5px #888;
+	  -moz-box-shadow: 5px 5px 5px #888;
+	  border-radius: 5px;
+	  -moz-border-radius: 5px;
+	  -webkit-border-radius: 5px;
+  }
+
+/*
     #post pre code {
       border: none;
     }
+*/
 
   /* terminal */
 
