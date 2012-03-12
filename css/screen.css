@@ -193,6 +193,9 @@ ul.posts {
 	  -webkit-border-radius: 5px;
   }
 
+  #post blockquote { margin: 1em 3em; padding: .5em 1em; border-left: 5px solid #fce27c; background-color: #f6ebc1; } 
+  #post blockquote p { margin: 0; }
+
 /*
     #post pre code {
       border: none;
