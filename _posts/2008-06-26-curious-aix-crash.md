@@ -6,6 +6,9 @@ title: A curious AIX crash
 categories: programming unix
 ---
 
+> Note: this is just a slightly modified version of my [original BlogSpot post](http://filodej.blogspot.com/2008/06/hard-aix-crash.html). 
+> I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to [MarkDown](http://en.wikipedia.org/wiki/Markdown)).
+
 Few days ago we had to solve an odd crash on AIX platform (powerpc chip). The company I am working in as a developer uses mainly 
 MS Windows as a development platform but supports Linux as well as Unix platforms (namely AIX, HP-UX and Solaris). 
 

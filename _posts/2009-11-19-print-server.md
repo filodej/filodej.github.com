@@ -7,7 +7,7 @@ categories: wmu6500fs linux
 updated_at: 2012-03-12
 ---
 
-> Note: this is just a slightly modified version of my [original post](http://filodej.blogspot.com/2009/11/print-server.html). 
+> Note: this is just a slightly modified version of my [original BlogSpot post](http://filodej.blogspot.com/2009/11/print-server.html). 
 > I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to [MarkDown](http://en.wikipedia.org/wiki/Markdown)).
 
 Introduction
