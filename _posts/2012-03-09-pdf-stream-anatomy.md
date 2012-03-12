@@ -10,8 +10,8 @@ PDF stream content anatomy
 
 Overview
 ========
-This post describes how to analyze the content of a PDF file with using just simple linux command-line tools
-like: [ls](http://en.wikipedia.org/wiki/Ls), [head](http://en.wikipedia.org/wiki/Head_%28Unix%29), 
+This post describes how to analyze the content of a PDF file with using just low level linux command-line 
+tools, namely: [ls](http://en.wikipedia.org/wiki/Ls), [head](http://en.wikipedia.org/wiki/Head_%28Unix%29), 
 [tail](http://en.wikipedia.org/wiki/Tail_%28Unix%29), [dd](http://en.wikipedia.org/wiki/Dd_%28Unix%29),
 [awk](http://en.wikipedia.org/wiki/AWK), [sed](http://en.wikipedia.org/wiki/Sed), 
 [wc](http://en.wikipedia.org/wiki/Wc_%28Unix%29), [gzip](http://en.wikipedia.org/wiki/Gzip) and 
@@ -25,12 +25,8 @@ Basic operations
 Parsing XREF table
 ------------------
 
-Given we have a pdf file:
-
-    $ ls *.pdf
-    test.pdf
-  
-We can simply look at its cross reference table. Its byte offset is stored just at the end of the PDF file:
+Given we have a pdf file called `trest.pdf`. We can simply look at its cross reference table. 
+Its byte offset is stored just at the end of the PDF file:
 
     $ tail test.pdf 
     0000588961 00000 n 
@@ -46,7 +42,7 @@ We can simply look at its cross reference table. Its byte offset is stored just 
 
 So we can see that the table starts at offset `589220`.
 
-Wit this information we can use the `dd` command to extract just part of the file beginning at given byte offset:
+With this information we can use the `dd` command to extract just part of the file beginning at given byte offset:
 
     $ dd if=test.pdf bs=1 skip=589220 2>/dev/null | head
     xref
@@ -76,7 +72,7 @@ With help of `sed` tool we skip the first 3 lines (`xref` identifier, object num
     9 0000571586 00000 n 
     10 0000551777 00000 n 
   
-The result looks good, now we can extract such cross reference table to a separate file 
+The result looks good so we can extract such cross reference table to a separate file 
 for later use:
 
     $ dd if=test.pdf bs=1 skip=589220 2>/dev/null | sed 1,3d | awk '{print NR,$0}' > test.pdf.xref
