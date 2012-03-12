@@ -39,12 +39,8 @@ If we check the compiler version:
     $ aCC --version         
     aCC: HP ANSI C++ B3910B A.03.80
 
-... we can see that the version of the compiler is A.03.80, but currently there are two more recent versions available:
-
-   * A.03.85
-   * A.03.90
-
-	 (see [HP aC++ release history for PA-RISC servers](http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801/?ciid=2645dec4c7563110VgnVCM100000275d6e10RCRD#b11.23pa)
+... we can see that the version of the compiler is `A.03.80`, but currently there are two more recent versions available: `A.03.85` and `A.03.90`
+(see [HP aC++ release history for PA-RISC servers](http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801/?ciid=2645dec4c7563110VgnVCM100000275d6e10RCRD#b11.23pa)
 
 Steps to reproduce the problem
 ==============================
@@ -54,7 +50,7 @@ Prepare the program
 
 * Download the following simple c++ file demonstrating the problem:
 
-	[hpcrashtest.cxx](https://github.com/filodej/filodej.github.com/blob/master/code/hpcrashtest.cxx)
+	[crashtest.cxx](https://github.com/filodej/filodej.github.com/blob/master/code/hp/crashtest.cxx)
 
   ... the program is standard C++ code and is succesfully compiled with the [Comeau compiler test drive](http://www.comeaucomputing.com/tryitout/).
 
@@ -63,7 +59,7 @@ The correct version
 
 * Compile the file with the aCC compiler
 
-      autotest@hpux7:~/bld/crash_test$ aCC hpcrashtest.cxx
+      autotest@hpux7:~/bld/crash_test$ aCC crashtest.cxx
 
 * Run the program (without and with a command line argument):
 
@@ -86,7 +82,7 @@ The incorrect version
 
 * Compile the program again, now with the /+hpxstd98/ compiler flag
 
-      autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 hpcrashtest.cxx
+      autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 crashtest.cxx
   
 * Run the newly compiled program (without and with a command line argument):
 
@@ -116,7 +112,7 @@ Debug the program
 
 * Compile the program with debug info
 
-      autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 -g0 hpcrashtest.cxx
+      autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 -g0 crashtest.cxx
 
 * Run the debuger
 
@@ -145,7 +141,7 @@ Debug the program
 
       (gdb) where
       #0  0x1864 in $$dyncall_external_20+0 ()
-      #1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at hpcrashtest.cxx:64
+      #1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
 	 
 * Look at the source code
 
@@ -173,14 +169,14 @@ Debug the program
 * Go one level up
 
       (gdb) up
-      #1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at hpcrashtest.cxx:64
+      #1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
       64              test.crash();
 
 * Show disassembly again	
 
       (gdb) disass
       Dump of assembler code for function main:
-      ;;; File: hpcrashtest.cxx
+      ;;; File: crashtest.cxx
       ;;;  49 {
       
       ...
@@ -233,9 +229,9 @@ Analyse the disassembly
 * Show the assembly diff 
 
       $ diff -y /tmp/disass-{ok,crash}-cut.txt
-      (gdb) disass main                                           (gdb) disass main
+      (gdb) disass main                                       (gdb) disass main
       
-        hpcrashtest.cxx                                         hpcrashtest.cxx
+        crashtest.cxx                                           crashtest.cxx
        ;;;  49 {                                               ;;;  49 {
             stw %rp,-0x14(%sp)                                      stw %rp,-0x14(%sp)
             ldo 0x40(%sp),%sp                                       ldo 0x40(%sp),%sp
