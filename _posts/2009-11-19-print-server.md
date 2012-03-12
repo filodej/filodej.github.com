@@ -100,7 +100,8 @@ made by the [Prolific Technology Inc.](http://www.prolific.com.tw/eng/product.as
     0x18
 
 Note that in case you have a USB printer you should probably expect somewhat more meaningful string like 
-`Hewlett-Packard HP LaserJet 1005 series`
+
+    Hewlett-Packard HP LaserJet 1005 series
 
 Now we are ready to try some printing:
 
