@@ -4,153 +4,169 @@ layout: post
 time: 2009-01-06 23:33:00 +01:00
 title: Cooperative Linux step by step
 ---
-<b>Introduction:</b>
-<br/>
-<br/>
-This post provides a step by step tutorial how to download, install and configure <a href="http://en.wikipedia.org/wiki/Colinux">CoLinux</a> with <a href="http://en.wikipedia.org/wiki/Debian">Debian 4.0</a> file system image. Also the installation of <a href="http://en.wikipedia.org/wiki/GNOME">GNOME</a> desktop environment and <a href="http://en.wikipedia.org/wiki/NX_technology">NX server</a> is covered. As a result we get a graphic Linux environment cooperatively running on the Windows hosting system. It can be seen as an alternative to a conventional "dual boot" configuration - but with both systems running at the same time. 
-<br/>
-<br/>
+Introduction
+============
+
+This post provides a step by step tutorial how to download, install and configure [CoLinux](http://en.wikipedia.org/wiki/Colinux) 
+with [Debian 4.0](http://en.wikipedia.org/wiki/Debian) file system image. 
+Also the installation of [GNOME](http://en.wikipedia.org/wiki/GNOME) desktop environment 
+and [NX server](http://en.wikipedia.org/wiki/NX_technology) is covered. 
+As a result we get a graphic Linux environment cooperatively running on the Windows hosting system. 
+It can be seen as an alternative to a conventional "dual boot" configuration - but with both systems running at the same time. 
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s1600-h/06-gnome-session-gimp.jpg"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 320px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s400/06-gnome-session-gimp.jpg" border="0" alt=""id="BLOGGER_PHOTO_ID_5288294856042187506" /></a>
-<br/>
-<b>Info sources:</b>
-<br/>
-<a href="http://www.colinux.org">[CoLinux Homepage]</a>
-<a href="http://colinux.wikia.com/wiki/Main_Page">[CoLinux Wiki]</a>
-<br/>
-<br/>
-<a href="http://sourceforge.net/project/shownotes.php?release_id=248895&group_id=98788">[Debian notes]</a>
-<a href="http://sourceforge.net/project/showfiles.php?group_id=98788&package_id=289363">[Debian filesystem image]</a>
-<a href="http://sourceforge.net/project/showfiles.php?group_id=98788">[More available filesystem images]</a>
-<a href="http://www.saltycrane.com/blog/2008/04/install-colinux-and-ubuntu-gutsy-on-win/">[Howto install coLinux (and Ubuntu Hardy) on Win XP]</a>
-<br/>
-<br/>
-<span class="fullpost">
-<h3>Download and installation</h3>
-<br />
-<b>CoLinux binary</b>
-<br/>
-You can download binary <a href="http://sourceforge.net/project/showfiles.php?group_id=98788&package_id=107317">here</a>.
-<br/>
-In my case it was the <i>stable version 0.7.3 (kernel 2.6.22.18)</i> ... <a href="http://downloads.sourceforge.net/colinux/coLinux-0.7.3.exe?modtime=1212921944&big_mirror=0">coLinux-0.7.3.exe</a>
-<br/>
-(an alternative could be the <i>development version 8.0 (kernel 2.6.22.18)</i> ...
-<a href="http://www.colinux.org/snapshots/devel-coLinux-20081130.exe">devel-coLinux-20081130.exe</a>, see <a href="http://www.colinux.org/snapshots/">this page</a> for details).
-<br/>
-<br/>
+
+Info sources:
+=============
+* [CoLinux Homepage](http://www.colinux.org)
+* [CoLinux Wiki](http://colinux.wikia.com/wiki/Main_Page)
+
+* [Debian notes](http://sourceforge.net/project/shownotes.php?release_id=248895&group_id=98788)
+* [Debian filesystem image](http://sourceforge.net/project/showfiles.php?group_id=98788&package_id=289363)
+* [More available filesystem images](http://sourceforge.net/project/showfiles.php?group_id=98788)
+* [Howto install coLinux (and Ubuntu Hardy) on Win XP](http://www.saltycrane.com/blog/2008/04/install-colinux-and-ubuntu-gutsy-on-win)
+
+
+Download and installation
+=========================
+CoLinux binary
+--------------
+You can download binary [here](http://sourceforge.net/project/showfiles.php?group_id=98788&package_id=107317).
+
+In my case it was the *stable version 0.7.3 (kernel 2.6.22.18)* ... [coLinux-0.7.3.exe](http://downloads.sourceforge.net/colinux/coLinux-0.7.3.exe?modtime=1212921944&big_mirror=0)
+
+(an alternative could be the *development version 8.0 (kernel 2.6.22.18)* ...
+[devel-coLinux-20081130.exe](http://www.colinux.org/snapshots/devel-coLinux-20081130.exe), see [this page](http://www.colinux.org/snapshots/) for details).
+
 Selected components:
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s1600-h/01-colinux-install1.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s400/01-colinux-install1.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289711502456034" /></a>
 
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s1600-h/01-colinux-install2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s400/01-colinux-install2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289725758292450" /></a>
 
-During the installation the <a href="http://www.winpcap.org/">WinPcap</a> (The Windows Packet Capture Library) is installed. It can be downloaded <a href="http://www.winpcap.org/install/">here</a>.
-<br/>
-<br/>
-I choose stable <a href="http://www.winpcap.org/install/bin/WinPcap_4_0_2.exe">WinPcap 4.0.2</a> (an alternative could be <a href="http://www.winpcap.org/install/bin/WinPcap_4_1_beta4.exe">WinPcap 4.1 beta4</a>).
+During the installation the [WinPcap](http://www.winpcap.org/) (The Windows Packet Capture Library) is installed. It can be downloaded [here](http://www.winpcap.org/install/).
+
+I choose stable [WinPcap 4.0.2](http://www.winpcap.org/install/bin/WinPcap_4_0_2.exe) (an alternative could be [WinPcap 4.1 beta4](http://www.winpcap.org/install/bin/WinPcap_4_1_beta4.exe)).
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s1600-h/01-colinux-install3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s400/01-colinux-install3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289727699889154" /></a>
+
 We can download (some of) available filesystem images directly during the installation:
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s1600-h/01-colinux-install4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s400/01-colinux-install4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289729083437570" /></a>
+
 TAP network adapter is installed (dear Microsoft, sure we want to continue the installation ;-)
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s1600-h/01-colinux-install5.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 260px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s400/01-colinux-install5.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289742028410674" /></a>
+
 Now the TAP adapter is installed (but not connected):
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s1600-h/02-tap-adapter.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 334px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s400/02-tap-adapter.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290199907235234" /></a>
+
 We have to configure the private IP address of the host system (windows):  
+
 <a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s1600-h/02-tap-adapter2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 355px; height: 400px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s400/02-tap-adapter2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290205191977634" /></a>
-<br />
-<br />
-<b>Installation paths:</b>
-<br />
-CoLinux binary: <i>c:\programs\coLinux</i><br />
-Filesystem images: <i>c:\programs\coLinux\images</i><br />
-<br />
-<h3>Configure (Windows side)</h3>
-<br />
-<b>Config file</b>
-<br />
-We create a new configuration file (just modify the installed <i>example.conf</i>):
-<pre class="code">
-C:\&gt; cd programs\coLinux
-C:\programs\coLinux&gt; copy example.conf debian.conf
+
+Installation paths:
+-------------------
+
+* CoLinux binary: *c:\programs\coLinux*
+* Filesystem images: *c:\programs\coLinux\images*
+
+Configure (Windows side)
+========================
+
+Config file
+-----------
+
+We create a new configuration file (just modify the installed *example.conf*):
+
+    C:\> cd programs\coLinux
+    C:\programs\coLinux> copy example.conf debian.conf
         1 file(s) copied.
-C:\programs\coLinux&gt; notepad debian.conf
-</pre>
+    C:\programs\coLinux> notepad debian.conf
+
 Now we can specify root image, swap file and possibly other mount points and also define two ethernet devices - one for pcap bridge and second for TAP adapter:
-<pre class="code">
-...
 
-# File contains the root file system.
-# Download and extract preconfigured file from SF "Images for 2.6".
-<b>cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
-cofs1=c:\
-cofs2=d:\
-</b>
-# Swap device, should be an empty file with 128..512MB.
-<b>cobd1="C:\programs\coLinux\images\swap_file.1gb"</b>
+    ...
+    
+    # File contains the root file system.
+    # Download and extract preconfigured file from SF "Images for 2.6".
+    cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+    cofs1=c:\
+    cofs2=d:\
+    
+    # Swap device, should be an empty file with 128..512MB.
+    cobd1="C:\programs\coLinux\images\swap_file.1gb"
 
-# Tell kernel the name of root device (mostly /dev/cobd0,
-# /dev/cobd/0 on Gentoo)
-# This parameter will be forward to Linux kernel.
-root=/dev/cobd0
+    # Tell kernel the name of root device (mostly /dev/cobd0,
+    # /dev/cobd/0 on Gentoo)
+    # This parameter will be forward to Linux kernel.
+    root=/dev/cobd0
 
-# Additional kernel parameters (ro = rootfs mount read only)
-ro
+    # Additional kernel parameters (ro = rootfs mount read only)
+    ro
 
-# Initrd installs modules into the root file system.
-# Need only on first boot.
-initrd=initrd.gz
+    # Initrd installs modules into the root file system.
+    # Need only on first boot.
+    initrd=initrd.gz
 
-# Maximal memory for linux guest
-#mem=64
+    # Maximal memory for linux guest
+    #mem=64
 
-# Slirp for internet connection (outgoing)
-# Inside running coLinux configure eth0 with this static settings:
-# ipaddress 10.0.2.15   broadcast  10.0.2.255   netmask 255.255.255.0
-# gateway   10.0.2.2    nameserver 10.0.2.3
-#eth0=slirp
+    # Slirp for internet connection (outgoing)
+    # Inside running coLinux configure eth0 with this static settings:
+    # ipaddress 10.0.2.15   broadcast  10.0.2.255   netmask 255.255.255.0
+    # gateway   10.0.2.2    nameserver 10.0.2.3
+    #eth0=slirp
 
-# pcap bridge for internet connection (outgoing)
-<b>eth0=pcap-bridge,"Local Area Connection",<i>&lt;an-artificial-mac-address&gt;</i></b>
+    # pcap bridge for internet connection (outgoing)
+    eth0=pcap-bridge,"Local Area Connection",<an-artificial-mac-address>
 
-# Tuntap as private network between guest and host on second linux device
-<b>eth1=tuntap</b>
+    # Tuntap as private network between guest and host on second linux device
+    eth1=tuntap
 
-# Setup for serial device
-#ttys0=COM1,"BAUD=115200 PARITY=n DATA=8 STOP=1 dtr=on rts=on"
+    # Setup for serial device
+    #ttys0=COM1,"BAUD=115200 PARITY=n DATA=8 STOP=1 dtr=on rts=on"
 
-# Run an application on colinux start (Sample Xming, a Xserver)
-# exec0=C:\Programs\Xming\Xming.exe,":0 -clipboard -multiwindow -ac"
-</pre>
-<b>Swap file</b>
-<br />
-Also you have to create a swap file, <a href="http://colinux.wikia.com/wiki/HowtoCreateSwapFile">here</a> is how to create it, or if you are lazy like me, you can download one from <a href="http://gniarf.nerim.net/colinux/swap/">this site</a> (user <a href="http://colinux.wikia.com/wiki/User:Gniarf">Gniarf</a> provides also other interesting info).
-<br/>
-<h3>Configure (Linux side)</h3>
+    # Run an application on colinux start (Sample Xming, a Xserver)
+    # exec0=C:\Programs\Xming\Xming.exe,":0 -clipboard -multiwindow -ac"
+
+Swap file
+---------
+
+Also you have to create a swap file, [here](http://colinux.wikia.com/wiki/HowtoCreateSwapFile) is how to create it, 
+or if you are lazy like me, you can download one from [this site](http://gniarf.nerim.net/colinux/swap/) 
+(user [Gniarf](http://colinux.wikia.com/wiki/User:Gniarf) provides also other interesting info).
+
+Configure (Linux side)
+----------------------
+
 Start colinux daemon:
-<pre class="code">
-C:\programs\coLinux&gt; <b>colinux-daemon.exe @debian.conf</b>
-Cooperative Linux Daemon, 0.7.3
-Daemon compiled on Sat May 24 22:36:07 2008
 
-PID: 3268
-error 0x2 in execution
-error launching console
-daemon: exit code 8200c401
-daemon: error - CO_RC_ERROR_ERROR, line 49, file src/colinux/os/winnt/user/exec.c (16)
-</pre>
+    C:\programs\coLinux> colinux-daemon.exe @debian.conf
+    Cooperative Linux Daemon, 0.7.3
+    Daemon compiled on Sat May 24 22:36:07 2008
+    
+    PID: 3268
+    error 0x2 in execution
+    error launching console
+    daemon: exit code 8200c401
+    daemon: error - CO_RC_ERROR_ERROR, line 49, file src/colinux/os/winnt/user/exec.c (16)
+
 We did not install the generic console so we have to explicitly say we want to launch the NT console:
-<pre class="code">
-C:\programs\coLinux&gt; <b>colinux-daemon.exe -t nt @debian.conf</b>
-...
-</pre>
-Login as root (a default password is <i>"root"</i>):
-<pre class="code">
-login as: root
-root@10.0.2.2's password:
-Linux debian 2.6.22.18-co-0.7.3 #1 PREEMPT Sat May 24 22:27:30 UTC 2008 i686
 
-The programs included with the Debian GNU/Linux system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
+    C:\programs\coLinux> colinux-daemon.exe -t nt @debian.conf
+    ...
 
+Login as root (a default password is `"root"`):
+
+    login as: root
+    root@10.0.2.2's password:
+    Linux debian 2.6.22.18-co-0.7.3 #1 PREEMPT Sat May 24 22:27:30 UTC 2008 i686
+    
+    The programs included with the Debian GNU/Linux system are free software;
+    the exact distribution terms for each program are described in the
+    individual files in /usr/share/doc/*/copyright.
+    
 Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
 permitted by applicable law.
 </pre>
