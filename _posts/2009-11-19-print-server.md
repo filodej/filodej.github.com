@@ -61,7 +61,7 @@ We download and install the *p910nd* print daemon (I use the [0.92 version](http
 
 Now we are ready to plug the printer to USB port (suppose you use the USB1 port specifically) and run the daemon:
 
-    box# <b>/mnt/C/sys/sbin/p910nd -b -f /dev/usblp0</b>
+    box# /mnt/C/sys/sbin/p910nd -b -f /dev/usblp0
 
 We can see that the process is now up and running. The fact that it is named `p9100d` (instead of original `p910nd`) 
 means that it is listening at port `9100`.
