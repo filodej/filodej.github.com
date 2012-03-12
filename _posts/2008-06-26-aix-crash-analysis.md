@@ -1,8 +1,8 @@
 --- 
-name: curious-aix-crash
+name: aix-crash-analysis
 layout: post
 time: 2008-06-26 17:20:00 +02:00
-title: A curious AIX crash
+title: AIX crash analysis
 categories: programming unix
 ---
 
