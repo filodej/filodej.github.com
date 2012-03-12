@@ -5,9 +5,6 @@ time: 2012-03-09 17:17
 title: PDF stream content anatomy
 categories: linux pdf
 ---
-PDF stream content anatomy
-==========================
-
 Overview
 ========
 This post describes how to analyze the content of a PDF file with using just low level linux command-line 
@@ -25,7 +22,7 @@ Basic operations
 Parsing XREF table
 ------------------
 
-Given we have a pdf file called `trest.pdf`. We can simply look at its cross reference table. 
+Given we have a pdf file called `test.pdf`. We can simply look at its cross reference table. 
 Its byte offset is stored just at the end of the PDF file:
 
     $ tail test.pdf 

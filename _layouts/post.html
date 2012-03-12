@@ -2,13 +2,13 @@
 layout: default
 ---
 <div id="post">
-{{ content }}
-
+<h2>{{ page.title }}</h2>
+<!--<span>Published: {{ page.date }}</span>
 {% if page.updated_at %}
-<br/>
-<em>Updated at {{ page.updated_at }} </em>
+<span>Updated: {{ page.updated_at }} </span>
 {% endif %}
-
+-->
+{{ content }}
 </div>
 
 <div id="related">
