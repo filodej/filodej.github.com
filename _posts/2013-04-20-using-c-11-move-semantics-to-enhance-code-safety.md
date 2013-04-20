@@ -9,31 +9,29 @@ categories: programming cpp
 Overview
 ========
 
-Let's say we have a fairly big codebase. The code is relatively portable
-and is regularly built on several platform's native compilers 
-(AIX, HP-UX, Solaris). There is an effort to move to GCC on all unixes 
-but it does not seem to be the case in a forseeable future.
+Let's say we have a fairly large codebase. The code is relatively portable
+and besides *Windows* (MSVC 2010) and *GNU/Linux* (GCC 4.3) it is regularly 
+built with several target platform's native compilers (*AIX*, *HP-UX*, *Solaris*). 
+There is an effort to move to *GCC* on all Unix systems but it does not seem 
+to be the case in a forseeable future.
 
-There is no problem to use lets say *Clang 3.2* or *GCC 4.8* just for better error 
-diagnostics as far as the source code still works on the old compilers as well.
+As we have a decent continue integration environment like [Jenkins](http://jenkins-ci.org) 
+or (Buildbot)[http://buildbot.net/] there is no problem to use lets say *Clang 3.2* 
+or *GCC 4.8* just for better error diagnostics as far as the source code remains 
+to work on the old compilers as well.
 
-The question is:
-----------------
+The question we want to address is:
 
-Can we utilize the new C++ standard in order to make the source code better
-and have it buildable on the old compilers?
+>  Can we utilize the new [C++11 standard](http://en.wikipedia.org/wiki/C%2B%2B11) 
+>  in order to make the source code better but still buildable with old compilers?
 
 Conversion helper
 =================
 
 We have the following conversion helper, which generically encapsulates all kinds 
-of unicode text conversions
-
-  - UTF-8 (`char`)
-  - UTF-16 (`wchar_t`)
-  - UTF-16 (`char16_t`)
-  - UTF-32 (`char32_t`)
-  - ...
+of unicode text conversions ([UTF-8](http://en.wikipedia.org/wiki/UTF-8) `char`, 
+[UTF-16](http://en.wikipedia.org/wiki/UTF-16) `wchar_t`, 
+UTF-16 `char16_t`, [UTF-32](http://en.wikipedia.org/wiki/UTF-32) `char32_t`, ...).
 
 The actual conversion is realized in the `do_conversion()` helper and is not really 
 important in this context.
@@ -122,8 +120,8 @@ The question is:
 >  Are we able to distinguish between the four cased demonstrated above and make sure
 >  the **#4** never appears in our codebase?
 
-C++11 at our service
-====================
+*C++11* at our service
+======================
 
 Fixed version
 -------------
@@ -151,7 +149,7 @@ The two new constructors are called anytime a temporary string is passed to the 
 If there is no conversion to be done, we just grab the guts of the temporary string 
 and so prolong its lifetime as long as we need it.
  
-The problem is that now we are outside the scope of C++03 and so this code does not work 
+The problem is that now we are outside the scope of *C++03* and so this code does not work 
 on the old compilers. So this approach helps us on new compilers but does not compile 
 on the old ones. 
 
