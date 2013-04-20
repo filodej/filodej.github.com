@@ -15,10 +15,10 @@ built with several target platform's native compilers (*AIX*, *HP-UX*, *Solaris*
 There is an effort to move to *GCC* on all Unix systems but it does not seem 
 to be the case in a forseeable future.
 
-As we have a decent continue integration environment like [Jenkins](http://jenkins-ci.org) 
-or (Buildbot)[http://buildbot.net/] there is no problem to use lets say *Clang 3.2* 
-or *GCC 4.8* just for better error diagnostics as far as the source code remains 
-to work on the old compilers as well.
+As we have a decent [Continue integration](http://en.wikipedia.org/wiki/Continuous_integration) 
+environment like [Jenkins](http://jenkins-ci.org) or [Buildbot](http://buildbot.net/) 
+there is no problem to use lets say *Clang 3.2* or *GCC 4.8* just for early error 
+diagnostics as far as the source code remains to work on the old compilers as well.
 
 The question we want to address is:
 
