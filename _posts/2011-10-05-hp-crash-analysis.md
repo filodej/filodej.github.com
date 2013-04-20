@@ -3,7 +3,7 @@ name: hp-crash-analysis
 layout: post
 time: 2011-10-05 13:44:00 +02:00
 title: HP-UX crash analysis
-categories: programming unix
+categories: programming unix cpp
 ---
 Overview
 ========

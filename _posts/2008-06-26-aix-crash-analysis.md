@@ -3,7 +3,7 @@ name: aix-crash-analysis
 layout: post
 time: 2008-06-26 17:20:00 +02:00
 title: AIX crash analysis
-categories: programming unix
+categories: programming cpp unix
 ---
 > Note: this is just a slightly modified version of my [original BlogSpot post](http://filodej.blogspot.com/2008/06/hard-aix-crash.html). 
 > I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to [MarkDown](http://en.wikipedia.org/wiki/Markdown)).
