@@ -1,0 +1,1 @@
+../_posts/2013-04-20-using-c-11-move-semantics-to-enhance-code-safety.md
