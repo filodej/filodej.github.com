@@ -36,7 +36,7 @@ UTF-16 `char16_t`, [UTF-32](http://en.wikipedia.org/wiki/UTF-32) `char32_t`, ...
 The actual conversion is realized in the `do_conversion()` helper and is not really 
 important in this context.
 
-What is important is that we have some generic string definition which looks something 
+What is important is that we have some generic `string` definition which looks something 
 like following:
 
 	#if ( XSTRING_FORMAT == 8 )
@@ -52,7 +52,7 @@ like following:
 	typedef std::basic_string<XChar> XString;
 
 ... and then in many places, when we are interfacing with an API accepting a particular 
-string format have code like this:
+`string` format have code like this:
 
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
 
@@ -98,7 +98,7 @@ Such helper class can look something like this:
 		size_type m_length;
 	};
 
-This implementation works relatively well as far as noone violates a single rule:
+This implementation works relatively well as far as no one violates a single rule:
 
 >  Lifetime of the `convert<>` object may never exceed lifetime of the `string` it is converting
 
@@ -117,7 +117,7 @@ The problem is demonstrated in the following code:
 
 The question is: 
 
->  Are we able to distinguish between the four cased demonstrated above and make sure
+>  Are we able to distinguish between the four cases demonstrated above and make sure
 >  the **#4** never appears in our codebase?
 
 *C++11* at our service
@@ -126,8 +126,8 @@ The question is:
 Fixed version
 -------------
 
-When we start compiling the source with *C++11* language version many new opportunities 
-open up for us. 
+When we start compiling the source with *C++11* language version (`-std=c++11` compiler setting)
+many new opportunities open up for us. 
 
 If we add the following two constructor overloads we have fully functional solution
 even for case **#4**.
@@ -145,21 +145,22 @@ even for case **#4**.
 	{
 	}
 
-The two new constructors are called anytime a temporary string is passed to the `convert<>`.
-If there is no conversion to be done, we just grab the guts of the temporary string 
+The two new constructors are called anytime a temporary `string` is passed to the `convert<>`.
+If there is no conversion to be done, we just grab the guts of the temporary `string` 
 and so prolong its lifetime as long as we need it.
  
 The problem is that now we are outside the scope of *C++03* and so this code does not work 
 on the old compilers. So this approach helps us on new compilers but does not compile 
-on the old ones. 
+on the old ones - not quite what we are looking for.
 
-Private constructors
+Input R/L valuedness
 --------------------
 
-What if we make those two constructors private instead and so make sure there is 
-no one using the conversion this way? Then we have only "nice" clients and we are 
-safe on all other platforms thanks to the fact that we just make a sanity check 
-build once a day or so.
+What if we make those two constructors *private* instead and so make sure there is 
+no one using the conversion this way? 
+
+Then we have only "nice" clients and we are safe on all other platforms thanks to 
+the fact that we just make a *sanity check build* once a day or so.
 
 	#ifdef HAS_MOVE_SEMANTICS
 	
@@ -179,6 +180,7 @@ build once a day or so.
 		convert( std::basic_string<T>&& text )
 			: convert( text ) // we are intentionally not moving (we convert anyway)
 		{
+			// case #2 or #4
 		}
 	#endif // HAS_MOVE_SEMANTICS
     
@@ -191,35 +193,26 @@ The case **#2** (which is perfectly OK) now fails to compile:
 	std::cout << "This is ok: " << convert<char>( s1 + s2 ).c_str() << std::endl;
 
 What we need is a way to distinguish between case **#2** and case **#4**.
-It is not the *R-valuedness* of input what is wrong, it is the combination
-of *R-valuedness* of the *input string* and *L-valuedness* of the `convert<>` object.
+It is not the *R-valuedness* of input what is wrong, it is *the combination*
+of input `string` *R-valuedness* and *L-valuedness* of the `convert<>` object.
 
-Converter instantiation
------------------------
+Converter R/L valuedness
+------------------------
 
 Now we have to distinguish cases when the `convert<>` class is instantiated
 as a one-liner (*R-value*) from cases when it is created as a named variable (*L-value*).
 
-What we need is to apply similar overload for the `convert<>` constructor like we did for 
-the input value. 
+What we are basically looking for is a similar overload for the `convert<>` constructor 
+like we have for the input `string` value. 
 
 If *C++* had explicit `this` parameter instead of implicit (like *Python* has with its first 
 method argument, conventionally called `self`), then we could try something like this:
 
-	convert( this_type&& self, string_type const& text )
-	{
-		// case #1 - OK
-	}
+	convert( this_type&& self, string_type const& text ) { /* case #1 - OK * / }
 
-	convert( this_type&& self, string_type&& text )
-	{
-		// case #2 - OK
-	}
+	convert( this_type&& self, string_type&& text )  { /* case #2 - OK * / }
 
-	convert( this_type const& self, string_type const& text )
-	{
-		// case #3 - OK
-	}
+	convert( this_type const& self, string_type const& text )  { /* case #2 - OK * / }
 
 	convert( this_type const& self, string_type&& text )
 	{
@@ -227,23 +220,15 @@ method argument, conventionally called `self`), then we could try something like
 		static_assert( 0, "Temporary values must be converted as a one-liner" );
 	}
 
-Actually there is a *cv-qualifiers* there is something called *ref-qualifiers*, see paper
-[Extending move semantics to *this](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm).
+Actually - as there are well known [cv-qualifiers](http://en.wikipedia.org/wiki/Const-correctness) 
+- newly there are also *ref-qualifiers* (see paper
+[Extending move semantics to *this](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm) ).
 
-	convert( string_type const& text ) &&
-	{
-		// case #1 - OK
-	}
+	convert( string_type const& text ) && { /* case #1 - OK * / }
 
-	convert( string_type&& text ) &&
-	{
-		// case #2 - OK
-	}
+	convert( string_type&& text ) && { /* case #2 - OK * / }
 
-	convert( string_type const& text ) &
-	{
-		// case #3 - OK
-	}
+	convert( string_type const& text ) & { /* case #3 - OK * / }
 
 	convert( string_type&& text ) &
 	{
@@ -284,11 +269,14 @@ We want to find a way to fail early - in compile time.
 
 Unfortunately I did not find a full solution for this problem. 
 As the *R/L valuedness* of a `convert<>` instance  is not known in 
-scope of its constructor we are not able to combine the two necessary 
-bits of information (*R/L-valuedness* of both *input value* and *convertor<>*) 
+scope of its *constructor* we are not able to combine the two necessary 
+bits of information (*R/L-valuedness* of both *input value* and *convert<>*) 
 in one place.
 
-There is a not so bad workaroung for this problem though.
+Thankfully there is a not so bad workaroung for this problem though.
+
+`convert<>` vs. `coverter<>`
+----------------------------
 
 It requires a change in client code, but fortunately it is quite mechanical change
 which can be easily automated.
@@ -339,14 +327,15 @@ following code:
 	#endif // HAS_MOVE_SEMANTICS
 
 To be able to return the `converter<>` out of the factory `convert<>` function
-it was necessary to make the (noncopyable) `converter<>` *movable* (add *move 
-constructor**).
+it was necessary to make the *non-copyable* `converter<>` *movable* (add *move 
+constructor*).
  
-Now we are back in the version with private constructors accepting *R-value* input
-but having a back door `convert<>` helper function for one-line conversions.
+Now we are back in the version with *private constructors* accepting *R-value* input
+but now we have a back door helper function called `convert<>` which we can use for 
+one-line conversions.
 
-Now in client code we must replace all the named (*L-value*) `convert<>` instances with 
-`converter<>` while keeping all one-line conversions intact.
+Now it is necessary to replace all the named (*L-value*) `convert<>` instances with 
+`converter<>` in client code while keeping all one-line conversions intact.
 
 	// case 1: converting an lvalue in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
@@ -379,9 +368,9 @@ For that we would love to use *template alias*:
 	template <typename CharT>
 	using convert = converter<CharT>;
 
-... but unfortunately it is not available before the *C++11*.
+... but unfortunately it was not available before the *C++11*.
  
-What remains is either the following ugly preprocessor hack:
+What remains as a workaround is either the following ugly preprocessor hack:
 
 	#define convert converter
 
@@ -409,8 +398,8 @@ What remains is either the following ugly preprocessor hack:
 		}
 	};
 
-Unfortunately we need to bridge *constructors* and *local typedefs* 
-as can be seen above.
+Unfortunately it is not trivial as we need to bridge *constructors* 
+and *local typedefs* as can be seen above.
 
 Conclusion
 ==========
@@ -422,8 +411,11 @@ of optimizations.
 As we seen this new expresivness is valuable not only for performance but 
 also for correctness of the source code.
 
-And even though you cannot use the new language in production (e.g. due to 
-some historical reasons) you can still utilize the new language features 
-for static code analysis.  
+And even though you cannot use the *new standard* directly in production 
+(e.g. due to some historical reasons) you can still utilize the new language 
+features as a kind of [static code analysis](http://en.wikipedia.org/wiki/Static_program_analysis).  
+
+Source code
+-----------
 
 The source code for this experiment is available [here](http://github.com/filodej/move-semantics).
