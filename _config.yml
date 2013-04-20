@@ -1,7 +1,5 @@
-destination: ./jekyll-aid-blog
 auto: true
 permalink: pretty
-markdown: rdiscount
 pygments: true
 markdown: rdiscount
 exclude: mkdocument
