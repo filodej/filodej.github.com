@@ -427,3 +427,5 @@ also for correctness of the source code.
 And even though you cannot use the new language in production (e.g. due to 
 some historical reasons) you can still utilize the new language features 
 for static code analysis.  
+
+The source code for this experiment is available [here](http://github.com/filodej/move-semantics).
