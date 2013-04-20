@@ -102,7 +102,7 @@ Such helper class can look something like this:
 
 This implementation works relatively well as far as noone violates a single rule:
 
->  Lifetime of the `convert<>` object may never exceed lifetime of the string it is converting
+>  Lifetime of the `convert<>` object may never exceed lifetime of the `string` it is converting
 
 The problem is demonstrated in the following code:
 
@@ -128,7 +128,7 @@ C++11 at our service
 Fixed version
 -------------
 
-When we start compiling the source with C++11 language version many new opportunities 
+When we start compiling the source with *C++11* language version many new opportunities 
 open up for us. 
 
 If we add the following two constructor overloads we have fully functional solution
