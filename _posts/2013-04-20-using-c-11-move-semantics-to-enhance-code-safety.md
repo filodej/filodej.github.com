@@ -63,12 +63,12 @@ Such helper class can look something like this:
 
 	template <typename CharT>
 	class convert
-		: public boost::noncopyable
 	{
 	public:
 		typedef CharT char_type;
 		typedef size_t size_type;
 		typedef std::basic_string<char_type> string_type;
+		typedef converter this_type;
 		
 		// no conversion performed => no overhead 
 		convert( string_type const& text )
@@ -91,11 +91,15 @@ Such helper class can look something like this:
 		}
 		
 		size_type length() const { return m_length; }
+
+	private:  // make this class noncopyable
+		convert( this_type const& );
+		this_type const& operator=( this_type const& );
 		
 	private:
-		string_type m_buffer;
-		char_type const* m_text;
-		size_type m_length;
+		string_type const m_buffer;
+		char_type const* const m_text;
+		size_type const m_length;
 	};
 
 This implementation works relatively well as far as no one violates a single rule:
