@@ -108,14 +108,17 @@ This implementation works relatively well as far as no one violates a single rul
 
 The problem is demonstrated in the following code:
 
-	// case 1: converting an L-value in a single expression is OK
+	// case #1: converting an L-value in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
-	// case 2: converting an R-value (temporary) in a single expression is OK
+
+	// case #2: converting an R-value (temporary) in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 + s2 ).c_str() << std::endl;
-	// case 3: converting an L-value with a named converter<> is OK
+
+	// case #3: converting an L-value with a named converter<> is OK
 	convert<char> const t1( s1 );
 	std::cout << "This is ok: " << t1.c_str() << std::endl;
-	// case 4: converting an R-value (temporary) with a named converter<> is BAD
+
+	// case #4: converting an R-value (temporary) with a named converter<> is BAD
 	convert<char> const t12( s1 + s2 );
 	std::cout << "Oooops!: " << t12.c_str() << std::endl;
 
@@ -341,14 +344,17 @@ one-line conversions.
 Now it is necessary to replace all the named (*L-value*) `convert<>` instances with 
 `converter<>` in client code while keeping all one-line conversions intact.
 
-	// case 1: converting an lvalue in a single expression is OK
+	// case #1: converting an lvalue in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
-	// case 2: converting an rvalue (temporary) in a single expression is OK
+
+	// case #2: converting an rvalue (temporary) in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 + s2 ).c_str() << std::endl;
-	// case 3: converting an lvalue with a named converter<> is OK
+
+	// case #3: converting an lvalue with a named converter<> is OK
 	converter<char> const t1( s1 );
 	std::cout << "This is ok: " << t1.c_str() << std::endl;
-	// case 3: converting an rvalue (temporary) with a named converter<> is BAD
+
+	// case #4: converting an rvalue (temporary) with a named converter<> is BAD
 	converter<char> const t12( s1 + s2 );
 	std::cout << "Oooops!: " << t12.c_str() << std::endl;
 
