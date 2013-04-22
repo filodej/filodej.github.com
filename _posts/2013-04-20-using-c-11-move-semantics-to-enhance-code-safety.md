@@ -423,3 +423,5 @@ Source code
 -----------
 
 The source code for this experiment is available [here](http://github.com/filodej/move-semantics).
+
+I was able to build it succesfully with GCC 4.7.2 and Clang 3.0.
