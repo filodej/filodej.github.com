@@ -39,6 +39,7 @@ important in this context.
 What is important is that we have some generic `string` definition which looks something 
 like following:
 
+```cpp
 	#if ( XSTRING_FORMAT == 8 )
 	typedef char XChar;
 	#elif ( XSTRING_FORMAT == 16 )
@@ -48,22 +49,28 @@ like following:
 	#elif ( XSTRING_FORMAT == 32 )
 	typedef char32_t XChar;
 	#endif
-
+	
 	typedef std::basic_string<XChar> XString;
+```
 
 ... and then in many places, when we are interfacing with an API accepting a particular 
 string format, we have code like this:
 
+
+```cpp
 	// retrieve our internal string 
 	XString const& str( ... ); 
 	// pass the string to an external API (convert it if necessary)
 	std::cout << "Output: " << convert<char>( str ).c_str() << std::endl;
+```
+
 
 The helper class called `convert` ought to be clever enough to incur a minimal overhead
 in case there is no need for a conversion. 
 
 Such helper class can look something like this:
 
+```cpp
 	template <typename CharT>
 	class convert
 	{
@@ -104,6 +111,7 @@ Such helper class can look something like this:
 		char_type const* const m_text;
 		size_type const m_length;
 	};
+```
 
 This implementation works relatively well as far as no one violates a single rule:
 
@@ -111,6 +119,7 @@ This implementation works relatively well as far as no one violates a single rul
 
 The problem is demonstrated in the following code:
 
+```cpp
 	// case #1: converting an L-value in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
 
@@ -124,6 +133,7 @@ The problem is demonstrated in the following code:
 	// case #4: converting an R-value (temporary) with a named converter<> is BAD
 	convert<char> const t12( s1 + s2 );
 	std::cout << "Oooops!: " << t12.c_str() << std::endl;
+```
 
 The question is: 
 
@@ -142,6 +152,7 @@ many new opportunities open up for us.
 If we add the following two constructor overloads we have fully functional solution
 even for case **#4**.
 
+```cpp
 	convert( string_type&& text )
 		: m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
 		, m_text( m_buffer.c_str() )
@@ -154,6 +165,7 @@ even for case **#4**.
 		: convert( text ) // we are intentionally not moving (we have to do conversion anyway)
 	{
 	}
+```
 
 The two new constructors are called anytime a temporary `string` is passed to the `convert<>`.
 If there is no conversion to be done, we just grab the guts of the temporary `string` 
@@ -172,6 +184,7 @@ no one using the conversion this way?
 Then we have only "nice" clients and we are safe on all other platforms thanks to 
 the fact that we just make a *sanity check build* once a day or so.
 
+```cpp
 	#ifdef HAS_MOVE_SEMANTICS
 	
 	#ifdef CHECK_BACKWARD_COMPATIBILITY
@@ -193,14 +206,17 @@ the fact that we just make a *sanity check build* once a day or so.
 			// case #2 or #4
 		}
 	#endif // HAS_MOVE_SEMANTICS
-    
+```
+
 The problem is that this approach disables all clients trying to convert *R-value* string;
 even ones doing that in a single expression (one-liner conversions).
 
 The case **#2** (which is perfectly OK) now fails to compile:
 
+```cpp
 	// case 2: converting an R-value (temporary) in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 + s2 ).c_str() << std::endl;
+```
 
 What we need is a way to distinguish between case **#2** and case **#4**.
 It is not the *R-valuedness* of input what is wrong, it is *the combination*
@@ -218,22 +234,25 @@ like we have for the input `string` value.
 If *C++* had explicit `this` parameter instead of implicit (like *Python* has with its first 
 method argument, conventionally called `self`), then we could try something like this:
 
+```cpp
 	convert( this_type&& self, string_type const& text ) { /* case #1 - OK * / }
 
 	convert( this_type&& self, string_type&& text )  { /* case #2 - OK * / }
 
-	convert( this_type const& self, string_type const& text )  { /* case #2 - OK * / }
+	convert( this_type const& self, string_type const& text )  { /* case #3 - OK * / }
 
 	convert( this_type const& self, string_type&& text )
 	{
 		// case #4 - ERR
 		static_assert( 0, "Temporary values must be converted as a one-liner" );
 	}
+```
 
 Actually - as there are well known [cv-qualifiers](http://en.wikipedia.org/wiki/Const-correctness) 
 - newly there are also *ref-qualifiers* (see paper
 [Extending move semantics to *this](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm) ).
 
+```cpp
 	convert( string_type const& text ) && { /* case #1 - OK * / }
 
 	convert( string_type&& text ) && { /* case #2 - OK * / }
@@ -245,6 +264,7 @@ Actually - as there are well known [cv-qualifiers](http://en.wikipedia.org/wiki/
 		// case #4 - ERR
 		static_assert( 0, "Temporary values must be converted as a one-liner" );
 	}
+```
 
 The problem is that *ref-qualifiers* cannot be applied to constructors 
 (neither to desctructors, static methods), just to ordinary methods. 
@@ -256,6 +276,7 @@ it should work since *Clang 2.9* according to the
 [Clang C++11 status page](http://clang.llvm.org/cxx_status.html) and since
 *GCC 4.8.1* according to the [GCC C++11 status page](http://gcc.gnu.org/projects/cxx0x.html) ).
 
+```cpp
 	CharT const* c_str() const&
 	{ 
 		// case #3 or #4
@@ -267,6 +288,7 @@ it should work since *Clang 2.9* according to the
 		// case #1 or #2
 		return m_text; 
 	}
+```
 
 The problem here is that we lost track of the input *R/L-valuedness* and so cannot
 distinguish between case **#3** (OK) and **#4** (Error).
@@ -295,15 +317,18 @@ First we rename the `convert<>` template class to `converter<>`.
 
 Then we create a perfectly forwarding template function called convert<> as follows: 
 
+```cpp
 	template <typename CharT, typename T>
 	inline converter<CharT> convert( T&& text )
 	{
 		return converter<CharT>( std::forward<T>( text ) ); 
 	} 
+```
 
 To the original version of the `convert<>` (now its name is `converter<>`) we add the 
 following code:
 
+```cpp
 	#ifdef HAS_MOVE_SEMANTICS
 	#ifdef CHECK_BACKWARD_COMPATIBILITY
 	private:
@@ -335,6 +360,7 @@ following code:
 		}
 
 	#endif // HAS_MOVE_SEMANTICS
+```
 
 To be able to return the `converter<>` out of the factory `convert<>` function
 it was necessary to make the *non-copyable* `converter<>` *movable* (add *move 
@@ -347,6 +373,7 @@ one-line conversions.
 Now it is necessary to replace all the named (*L-value*) `convert<>` instances with 
 `converter<>` in client code while keeping all one-line conversions intact.
 
+```cpp
 	// case #1: converting an lvalue in a single expression is OK
 	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
 
@@ -360,6 +387,7 @@ Now it is necessary to replace all the named (*L-value*) `convert<>` instances w
 	// case #4: converting an rvalue (temporary) with a named converter<> is BAD
 	converter<char> const t12( s1 + s2 );
 	std::cout << "Oooops!: " << t12.c_str() << std::endl;
+```
 
 Now if we compile the source code with the `CHECK_BACKWARD_COMPATIBILITY` 
 macro defined we get the following compiler error for the case **#4**:
@@ -368,6 +396,7 @@ macro defined we get the following compiler error for the case **#4**:
 	movement.cpp:38:24: error: calling a private constructor of class 'converter<char>'
 	        converter<char> const t12( s1 + s2 );
 	                              ^
+
 *GCC 4.7*:
 	././convert_impl.hpp:65:2: error: ‘converter<CharT>::converter(std::basic_string<T>&&) 
 		[with T = wchar_t; CharT = char]’ is private
@@ -378,17 +407,22 @@ on the old compilers.
 
 For that we would love to use *template alias*:
 
+```cpp
 	template <typename CharT>
 	using convert = converter<CharT>;
+```
 
 ... but unfortunately it was not available before the *C++11*.
  
 What remains as a workaround is either the following ugly preprocessor hack:
 
+```cpp
 	#define convert converter
+```
 
 ... or we can use inheritance:
 
+```cpp
 	template <typename CharT>
 	class convert 
 		: public converter<CharT>
@@ -410,6 +444,7 @@ What remains as a workaround is either the following ugly preprocessor hack:
 		{
 		}
 	};
+```
 
 Unfortunately it is not trivial as we need to bridge *constructors* 
 and *local typedefs* as can be seen above.
@@ -433,4 +468,4 @@ Source code
 
 The source code for this experiment is available [here](http://github.com/filodej/move-semantics).
 
-I was able to build it succesfully with GCC 4.7.2 and Clang 3.0.
+I was able to build it succesfully with *GCC 4.7.2* and *Clang 3.0*.
