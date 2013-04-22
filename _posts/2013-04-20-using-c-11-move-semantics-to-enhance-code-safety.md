@@ -327,7 +327,7 @@ following code:
 
  		template <class T>
 		converter( std::basic_string<T>&& text )
-			: convert( text ) // we are intentionally not moving (we convert anyway)
+			: converter( text ) // we are intentionally not moving (we convert anyway)
 		{
 		}
 
