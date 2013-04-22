@@ -148,7 +148,7 @@ even for case **#4**.
 
  	template <class T>
 	convert( std::basic_string<T>&& text )
-		: convert( text ) // we are intentionally not moving (we convert anyway)
+		: convert( text ) // we are intentionally not moving (we have to do conversion anyway)
 	{
 	}
 
@@ -185,7 +185,7 @@ the fact that we just make a *sanity check build* once a day or so.
 
  		template <class T>
 		convert( std::basic_string<T>&& text )
-			: convert( text ) // we are intentionally not moving (we convert anyway)
+			: convert( text ) // we are intentionally not moving (we have to do conversion anyway)
 		{
 			// case #2 or #4
 		}
