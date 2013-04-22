@@ -3,6 +3,7 @@ name: cooperative-linux-with-debian
 layout: post
 time: 2009-01-06 23:33:00 +01:00
 title: Cooperative Linux step by step
+categories: linux
 ---
 > Note: this is just a slightly modified version of my [original BlogSpot post](http://filodej.blogspot.com/2008/06/cooperative-linux-with-debian.html). 
 > I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to [MarkDown](http://en.wikipedia.org/wiki/Markdown)).

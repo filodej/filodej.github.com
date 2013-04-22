@@ -3,7 +3,7 @@ name: print-server
 layout: post
 time: 2009-11-19 09:35:00 +01:00
 title: WMU-6500FS - Print server installation
-categories: wmu6500fs linux
+categories: linux wmu6500fs
 updated_at: 2012-03-12
 ---
 
