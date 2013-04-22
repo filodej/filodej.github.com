@@ -1,0 +1,3738 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>All Posts</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <h2>Post Titles:</h2>
+<ul>
+
+  <li><a href="#/programming/cpp/2013/04/20/using-c-11-move-semantics-to-enhance-code-safety/">Using C++11 move semantics to enhance code safety</a></li>
+
+  <li><a href="#/programming/cpp/2012/03/13/cpp-11-materials/">C++11 learing materials</a></li>
+
+  <li><a href="#/linux/pdf/2012/03/09/pdf-stream-anatomy/">PDF stream content anatomy</a></li>
+
+  <li><a href="#/programming/unix/cpp/2011/10/05/hp-crash-analysis/">HP-UX crash analysis</a></li>
+
+  <li><a href="#/wmu6500fs/linux/2009/11/19/print-server/">WMU-6500FS - Print server installation</a></li>
+
+  <li><a href="#/2009/03/26/port-forwarding-remote-desktop/">Port forwarding & Remote desktop connection (updated)</a></li>
+
+  <li><a href="#/2009/01/06/cooperative-linux-with-debian/">Cooperative Linux step by step</a></li>
+
+  <li><a href="#/programming/cpp/unix/2008/06/26/aix-crash-analysis/">AIX crash analysis</a></li>
+
+</ul>
+
+
+
+<h2>All Posts:</h2>
+</div>
+
+  <div><a name="/programming/cpp/2013/04/20/using-c-11-move-semantics-to-enhance-code-safety/">&nbsp;</a>
+    <h1>Overview</h1>
+
+<p>Let's say we have a fairly large codebase. The code is relatively portable
+and besides <em>Windows</em> (MSVC 2010) and <em>GNU/Linux</em> (GCC 4.3) it is regularly
+built with several target platform's native compilers (<em>AIX</em>, <em>HP-UX</em>, <em>Solaris</em>).
+There is an effort to move to <em>GCC</em> on all Unix systems but it does not seem
+to be the case in a forseeable future.</p>
+
+<p>As we have a decent <a href="http://en.wikipedia.org/wiki/Continuous_integration">Continue integration</a>
+environment like <a href="http://jenkins-ci.org">Jenkins</a> or <a href="http://buildbot.net/">Buildbot</a>
+there is no problem to use lets say <em>Clang 3.2</em> or <em>GCC 4.8</em> just for early error
+diagnostics as far as the source code remains to work on the old compilers as well.</p>
+
+<p>The question we want to address is:</p>
+
+<blockquote><p> Can we utilize the new <a href="http://en.wikipedia.org/wiki/C%2B%2B11">C++11 standard</a>
+ in order to make the source code better but still buildable with old compilers?</p></blockquote>
+
+<h1>Conversion helper</h1>
+
+<p>We have the following conversion helper, which generically encapsulates all kinds
+of unicode text conversions (<a href="http://en.wikipedia.org/wiki/UTF-8">UTF-8</a> <code>char</code>,
+<a href="http://en.wikipedia.org/wiki/UTF-16">UTF-16</a> <code>wchar_t</code>,
+UTF-16 <code>char16_t</code>, <a href="http://en.wikipedia.org/wiki/UTF-32">UTF-32</a> <code>char32_t</code>, ...).</p>
+
+<p>The actual conversion is realized in the <code>do_conversion()</code> helper and is not really
+important in this context.</p>
+
+<p>What is important is that we have some generic <code>string</code> definition which looks something
+like following:</p>
+
+<pre><code class="cpp">#if ( XSTRING_FORMAT == 8 )
+typedef char XChar;
+#elif ( XSTRING_FORMAT == 16 )
+typedef char16_t XChar;
+#elif ( XSTRING_FORMAT == -16 )
+typedef wchar_t XChar;
+#elif ( XSTRING_FORMAT == 32 )
+typedef char32_t XChar;
+#endif
+
+typedef std::basic_string&lt;XChar&gt; XString;
+</code></pre>
+
+
+<p>... and then in many places, when we are interfacing with an API accepting a particular
+string format, we have code like this:</p>
+
+<pre><code class="cpp">// retrieve our internal string 
+XString const&amp; str( ... ); 
+// pass the string to an external API (convert it if necessary)
+std::cout &lt;&lt; "Output: " &lt;&lt; convert&lt;char&gt;( str ).c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>The helper class called <code>convert</code> ought to be clever enough to incur a minimal overhead
+in case there is no need for a conversion.</p>
+
+<p>Such helper class can look something like this:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+class convert
+{
+public:
+    typedef CharT char_type;
+    typedef size_t size_type;
+    typedef std::basic_string&lt;char_type&gt; string_type;
+    typedef converter this_type;
+
+    // no conversion performed =&gt; no overhead 
+    convert( string_type const&amp; text )
+        : m_text( text.c_str() )
+        , m_length( text.size() )
+    {
+    }
+
+    template &lt;typename T&gt;
+    convert( std::basic_string&lt;T&gt; const&amp; text )
+        : m_buffer( do_conversion&lt;CharT&gt;( text.c_str(), text.size() ) )
+        , m_text( m_buffer.c_str() )
+        , m_length( m_buffer.size() )
+    {
+    }
+
+    CharT const* c_str() const
+    { 
+        return m_text; 
+    }
+
+    size_type length() const { return m_length; }
+
+private:  // make this class noncopyable
+    convert( this_type const&amp; );
+    this_type const&amp; operator=( this_type const&amp; );
+
+private:
+    string_type const m_buffer;
+    char_type const* const m_text;
+    size_type const m_length;
+};
+</code></pre>
+
+
+<p>This implementation works relatively well as far as no one violates a single rule:</p>
+
+<blockquote><p> Lifetime of the <code>convert&lt;&gt;</code> object may never exceed lifetime of the <code>string</code> it is converting</p></blockquote>
+
+<p>The problem is demonstrated in the following code:</p>
+
+<pre><code class="cpp">// case #1: converting an L-value in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 ).c_str() &lt;&lt; std::endl;
+
+// case #2: converting an R-value (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+
+// case #3: converting an L-value with a named converter&lt;&gt; is OK
+convert&lt;char&gt; const t1( s1 );
+std::cout &lt;&lt; "This is ok: " &lt;&lt; t1.c_str() &lt;&lt; std::endl;
+
+// case #4: converting an R-value (temporary) with a named converter&lt;&gt; is BAD
+convert&lt;char&gt; const t12( s1 + s2 );
+std::cout &lt;&lt; "Oooops!: " &lt;&lt; t12.c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>The question is:</p>
+
+<blockquote><p> Are we able to distinguish between the four cases demonstrated above and make sure
+ the <strong>#4</strong> never appears in our codebase?</p></blockquote>
+
+<h1><em>C++11</em> at our service</h1>
+
+<h2>Fixed version</h2>
+
+<p>When we start compiling the source with <em>C++11</em> language version (<code>-std=c++11</code> compiler setting)
+many new opportunities open up for us.</p>
+
+<p>If we add the following two constructor overloads we have fully functional solution
+even for case <strong>#4</strong>.</p>
+
+<pre><code class="cpp">convert( string_type&amp;&amp; text )
+    : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+    , m_text( m_buffer.c_str() )
+    , m_length( text.size() )
+{
+}
+
+template &lt;class T&gt;
+convert( std::basic_string&lt;T&gt;&amp;&amp; text )
+    : convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+{
+}
+</code></pre>
+
+
+<p>The two new constructors are called anytime a temporary <code>string</code> is passed to the <code>convert&lt;&gt;</code>.
+If there is no conversion to be done, we just grab the guts of the temporary <code>string</code>
+and so prolong its lifetime as long as we need it.</p>
+
+<p>The problem is that now we are outside the scope of <em>C++03</em> and so this code does not work
+on the old compilers. So this approach helps us on new compilers but does not compile
+on the old ones - not quite what we are looking for.</p>
+
+<h2>Input R/L valuedness</h2>
+
+<p>What if we make those two constructors <em>private</em> instead and so make sure there is
+no one using the conversion this way?</p>
+
+<p>Then we have only "nice" clients and we are safe on all other platforms thanks to
+the fact that we just make a <em>sanity check build</em> once a day or so.</p>
+
+<pre><code class="cpp">#ifdef HAS_MOVE_SEMANTICS
+
+#ifdef CHECK_BACKWARD_COMPATIBILITY
+private:
+#endif // CHECK_BACKWARD_COMPATIBILITY
+
+    convert( string_type&amp;&amp; text )
+        : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+        , m_text( m_buffer.c_str() )
+        , m_length( text.size() )
+    {
+        // case #2 or #4
+    }
+
+    template &lt;class T&gt;
+    convert( std::basic_string&lt;T&gt;&amp;&amp; text )
+        : convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+    {
+        // case #2 or #4
+    }
+#endif // HAS_MOVE_SEMANTICS
+</code></pre>
+
+
+<p>The problem is that this approach disables all clients trying to convert <em>R-value</em> string;
+even ones doing that in a single expression (one-liner conversions).</p>
+
+<p>The case <strong>#2</strong> (which is perfectly OK) now fails to compile:</p>
+
+<pre><code class="cpp">// case 2: converting an R-value (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>What we need is a way to distinguish between case <strong>#2</strong> and case <strong>#4</strong>.
+It is not the <em>R-valuedness</em> of input what is wrong, it is <em>the combination</em>
+of input <code>string</code> <em>R-valuedness</em> and <em>L-valuedness</em> of the <code>convert&lt;&gt;</code> object.</p>
+
+<h2>Converter R/L valuedness</h2>
+
+<p>Now we have to distinguish cases when the <code>convert&lt;&gt;</code> class is instantiated
+as a one-liner (<em>R-value</em>) from cases when it is created as a named variable (<em>L-value</em>).</p>
+
+<p>What we are basically looking for is a similar overload for the <code>convert&lt;&gt;</code> constructor
+like we have for the input <code>string</code> value.</p>
+
+<p>If <em>C++</em> had explicit <code>this</code> parameter instead of implicit (like <em>Python</em> has with its first
+method argument, conventionally called <code>self</code>), then we could try something like this:</p>
+
+<pre><code class="cpp">convert( this_type&amp;&amp; self, string_type const&amp; text ) { /* case #1 - OK * / }
+
+convert( this_type&amp;&amp; self, string_type&amp;&amp; text )  { /* case #2 - OK * / }
+
+convert( this_type const&amp; self, string_type const&amp; text )  { /* case #3 - OK * / }
+
+convert( this_type const&amp; self, string_type&amp;&amp; text )
+{
+    // case #4 - ERR
+    static_assert( 0, "Temporary values must be converted as a one-liner" );
+}
+</code></pre>
+
+
+<p>Actually - as there are well known <a href="http://en.wikipedia.org/wiki/Const-correctness">cv-qualifiers</a>
+- newly there are also <em>ref-qualifiers</em> (see paper
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm">Extending move semantics to *this</a> ).</p>
+
+<pre><code class="cpp">convert( string_type const&amp; text ) &amp;&amp; { /* case #1 - OK * / }
+
+convert( string_type&amp;&amp; text ) &amp;&amp; { /* case #2 - OK * / }
+
+convert( string_type const&amp; text ) &amp; { /* case #3 - OK * / }
+
+convert( string_type&amp;&amp; text ) &amp;
+{
+    // case #4 - ERR
+    static_assert( 0, "Temporary values must be converted as a one-liner" );
+}
+</code></pre>
+
+
+<p>The problem is that <em>ref-qualifiers</em> cannot be applied to constructors
+(neither to desctructors, static methods), just to ordinary methods.</p>
+
+<p>So what about the <code>convert&lt;&gt;::c_str()</code> method?</p>
+
+<p>The following code works perfectly OK (I have tested it on <em>Clang 3.0</em>,
+it should work since <em>Clang 2.9</em> according to the
+<a href="http://clang.llvm.org/cxx_status.html">Clang C++11 status page</a> and since
+<em>GCC 4.8.1</em> according to the <a href="http://gcc.gnu.org/projects/cxx0x.html">GCC C++11 status page</a> ).</p>
+
+<pre><code class="cpp">CharT const* c_str() const&amp;
+{ 
+    // case #3 or #4
+    return m_text; 
+}
+
+CharT const* c_str() &amp;&amp;
+{ 
+    // case #1 or #2
+    return m_text; 
+}
+</code></pre>
+
+
+<p>The problem here is that we lost track of the input <em>R/L-valuedness</em> and so cannot
+distinguish between case <strong>#3</strong> (OK) and <strong>#4</strong> (Error).</p>
+
+<p>So what we need is to transfer the input valuedness from the constructor to the
+<code>c_str()</code> method. We could definitely store it in a variable and assert in runtime,
+but it is not what we really want.</p>
+
+<p>We want to find a way to fail early - in compile time.</p>
+
+<p>Unfortunately I did not find a full solution for this problem.
+As the <em>R/L valuedness</em> of a <code>convert&lt;&gt;</code> instance  is not known in
+scope of its <em>constructor</em> we are not able to combine the two necessary
+bits of information (<em>R/L-valuedness</em> of both <em>input value</em> and <em>convert&lt;></em>)
+in one place.</p>
+
+<p>Thankfully there is a not so bad workaroung for this problem though.</p>
+
+<h2><code>convert&lt;&gt;</code> vs. <code>coverter&lt;&gt;</code></h2>
+
+<p>It requires a change in client code, but fortunately it is quite mechanical change
+which can be easily automated.</p>
+
+<p>First we rename the <code>convert&lt;&gt;</code> template class to <code>converter&lt;&gt;</code>.</p>
+
+<p>Then we create a perfectly forwarding template function called convert&lt;> as follows:</p>
+
+<pre><code class="cpp">template &lt;typename CharT, typename T&gt;
+inline converter&lt;CharT&gt; convert( T&amp;&amp; text )
+{
+    return converter&lt;CharT&gt;( std::forward&lt;T&gt;( text ) ); 
+} 
+</code></pre>
+
+
+<p>To the original version of the <code>convert&lt;&gt;</code> (now its name is <code>converter&lt;&gt;</code>) we add the
+following code:</p>
+
+<pre><code class="cpp">#ifdef HAS_MOVE_SEMANTICS
+#ifdef CHECK_BACKWARD_COMPATIBILITY
+private:
+    // Following constructors are not allowed before we have C++11 support 
+    // on all target platforms
+    // (r-value string conversion must be performed within the same expression)
+    template &lt;typename CT, typename T&gt;
+    friend converter&lt;CT&gt; convert( T&amp;&amp; text );
+#endif
+
+    converter( this_type&amp;&amp; rhs )
+        : m_buffer( std::move( rhs.m_buffer ) )
+        , m_text( std::move( rhs.m_text ) )
+        , m_length( std::move( rhs.m_length ) )
+    {
+    }
+
+    converter( string_type&amp;&amp; text )
+        : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+        , m_text( m_buffer.c_str() )
+        , m_length( text.size() )
+    {
+    }
+
+    template &lt;class T&gt;
+    converter( std::basic_string&lt;T&gt;&amp;&amp; text )
+        : converter( text ) // we are intentionally not moving (we convert anyway)
+    {
+    }
+
+#endif // HAS_MOVE_SEMANTICS
+</code></pre>
+
+
+<p>To be able to return the <code>converter&lt;&gt;</code> out of the factory <code>convert&lt;&gt;</code> function
+it was necessary to make the <em>non-copyable</em> <code>converter&lt;&gt;</code> <em>movable</em> (add <em>move
+constructor</em>).</p>
+
+<p>Now we are back in the version with <em>private constructors</em> accepting <em>R-value</em> input
+but now we have a back door helper function called <code>convert&lt;&gt;</code> which we can use for
+one-line conversions.</p>
+
+<p>Now it is necessary to replace all the named (<em>L-value</em>) <code>convert&lt;&gt;</code> instances with
+<code>converter&lt;&gt;</code> in client code while keeping all one-line conversions intact.</p>
+
+<pre><code class="cpp">// case #1: converting an lvalue in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 ).c_str() &lt;&lt; std::endl;
+
+// case #2: converting an rvalue (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+
+// case #3: converting an lvalue with a named converter&lt;&gt; is OK
+converter&lt;char&gt; const t1( s1 );
+std::cout &lt;&lt; "This is ok: " &lt;&lt; t1.c_str() &lt;&lt; std::endl;
+
+// case #4: converting an rvalue (temporary) with a named converter&lt;&gt; is BAD
+converter&lt;char&gt; const t12( s1 + s2 );
+std::cout &lt;&lt; "Oooops!: " &lt;&lt; t12.c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>Now if we compile the source code with the <code>CHECK_BACKWARD_COMPATIBILITY</code>
+macro defined we get the following compiler error for the case <strong>#4</strong>:</p>
+
+<p><em>Clang 3.0</em>:</p>
+
+<pre><code>movement.cpp:38:24: error: calling a private constructor of class 'converter&lt;char&gt;'
+        converter&lt;char&gt; const t12( s1 + s2 );
+                              ^
+</code></pre>
+
+<p><em>GCC 4.7</em>:</p>
+
+<pre><code>././convert_impl.hpp:65:2: error: ‘converter&lt;CharT&gt;::converter(std::basic_string&lt;T&gt;&amp;&amp;) 
+    [with T = wchar_t; CharT = char]’ is private
+movement.cpp:38:37: error: within this context
+</code></pre>
+
+<p>The last step is to make the <code>convert&lt;&gt;</code> and <code>converter&lt;&gt;</code> work the same way
+on the old compilers.</p>
+
+<p>For that we would love to use <em>template alias</em>:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+using convert = converter&lt;CharT&gt;;
+</code></pre>
+
+
+<p>... but unfortunately it was not available before the <em>C++11</em>.</p>
+
+<p>What remains as a workaround is either the following ugly preprocessor hack:</p>
+
+<pre><code class="cpp">#define convert converter
+</code></pre>
+
+
+<p>... or we can use inheritance:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+class convert 
+    : public converter&lt;CharT&gt;
+{
+    typedef converter&lt;CharT&gt; base_type;
+public:
+    using typename base_type::char_type;
+    using typename base_type::size_type;
+    using typename base_type::string_type;
+
+    convert( string_type const&amp; text )
+        : base_type( text )
+    {
+    }
+
+    template &lt;typename T&gt;
+    convert( std::basic_string&lt;T&gt; const&amp; text )
+        : base_type( text )
+    {
+    }
+};
+</code></pre>
+
+
+<p>Unfortunately it is not trivial as we need to bridge <em>constructors</em>
+and <em>local typedefs</em> as can be seen above.</p>
+
+<h1>Conclusion</h1>
+
+<p>The <em>C++11 standard</em> greatly extends what the language is able to express.
+Especially the move semantics opens many opportunities for various kinds
+of optimizations.</p>
+
+<p>As we seen this new expresivness is valuable not only for performance but
+also for correctness of the source code.</p>
+
+<p>And even though you cannot use the <em>new standard</em> directly in production
+(e.g. due to some historical reasons) you can still utilize the new language
+features as a kind of <a href="http://en.wikipedia.org/wiki/Static_program_analysis">static code analysis</a>.</p>
+
+<h2>Source code</h2>
+
+<p>The source code for this experiment is available <a href="http://github.com/filodej/move-semantics">here</a>.</p>
+
+<p>I was able to build it succesfully with <em>GCC 4.7.2</em> and <em>Clang 3.0</em>.</p>
+
+  </div>
+
+  <div><a name="/programming/cpp/2012/03/13/cpp-11-materials/">&nbsp;</a>
+    <h1>Conferences</h1>
+
+<h2>C++ and Beyond 2011</h2>
+
+<p><em>Scott Meyers, Herb Sutter, Andrei Alexandrescu</em></p>
+
+<ul>
+<li>Herb Sutter - C++ Renaissance (<a href="http://channel9.msdn.com/posts/C-and-Beyond-2011-Herb-Sutter-Why-C">video</a> + <a href="http://ecn.channel9.msdn.com/content/WhyCPPCB2011.pdf">slides</a>)</li>
+<li><a href="http://channel9.msdn.com/Tags/cppbeyond">All the public materials</a></li>
+</ul>
+
+
+<h2>Going Native 2012</h2>
+
+<p><em>Bjarne Stroustrup, Herb Sutter, Andrei Alexandrescu, Stephan T. Lavavej, Chandler Carruth, Hans Boehm, Andrew Sutton</em></p>
+
+<p><a href="http://channel9.msdn.com/Events/GoingNative/GoingNative-2012">All the presentations</a></p>
+
+<h2>ACCU 2011</h2>
+
+<ul>
+<li>Scott Meyers
+
+<ul>
+<li>CPU Caches and Why You Care (<a href="http://skillsmatter.com/podcast/home/cpu-caches-and-why-you-care">video</a> + <a href="http://www.aristeia.com/TalkNotes/ACCU2011_CPUCaches.pdf">slides</a>)</li>
+<li>Move Semantics, Rvalue References, and Perfect Forwarding (<a href="http://skillsmatter.com/podcast/home/move-semanticsperfect-forwarding-and-rvalue-references">video</a> + <a href="http://www.aristeia.com/TalkNotes/ACCU2011_MoveSemantics.pdf">slides</a>)</li>
+</ul>
+</li>
+</ul>
+
+
+<h1>Lectures</h1>
+
+<h2>Standard Template Library + Advanced STL </h2>
+
+<p><em>Stephan T Lavavej</em></p>
+
+<p>The <a href="http://channel9.msdn.com/Shows/Going+Deep/C9-Lectures-Stephan-T-Lavavej-Standard-Template-Library-STL-10-of-10">last lecture</a>
+associated text contains all other links</p>
+
+  </div>
+
+  <div><a name="/linux/pdf/2012/03/09/pdf-stream-anatomy/">&nbsp;</a>
+    <h1>Overview</h1>
+
+<p>This post describes how to analyze the content of a PDF file with using just low level linux command-line
+tools, namely: <a href="http://en.wikipedia.org/wiki/Ls">ls</a>, <a href="http://en.wikipedia.org/wiki/Head_%28Unix%29">head</a>,
+<a href="http://en.wikipedia.org/wiki/Tail_%28Unix%29">tail</a>, <a href="http://en.wikipedia.org/wiki/Dd_%28Unix%29">dd</a>,
+<a href="http://en.wikipedia.org/wiki/AWK">awk</a>, <a href="http://en.wikipedia.org/wiki/Sed">sed</a>,
+<a href="http://en.wikipedia.org/wiki/Wc_%28Unix%29">wc</a>, <a href="http://en.wikipedia.org/wiki/Gzip">gzip</a> and
+<a href="http://en.wikipedia.org/wiki/Chmod">chmod</a>.</p>
+
+<p>It was inspired by a screencast available <a href="http://www.youtube.com/watch?v=k34wRxaxA_c">here</a>.</p>
+
+<h1>Basic operations</h1>
+
+<h2>Parsing XREF table</h2>
+
+<p>Given we have a pdf file called <code>test.pdf</code>. We can simply look at its cross reference table.
+Its byte offset is stored just at the end of the PDF file:</p>
+
+<pre><code>$ tail test.pdf 
+0000588961 00000 n 
+0000589014 00000 n 
+trailer
+&lt;&lt; /Size 315
+/Root 313 0 R
+/Info 314 0 R
+/ID [&lt;E571FA644538D6F88683F97FDE1B2C10&gt; &lt;E571FA644538D6F88683F97FDE1B2C10&gt;] &gt;&gt;
+startxref
+589220
+%%EOF
+</code></pre>
+
+<p>So we can see that the table starts at offset <code>589220</code>.</p>
+
+<p>With this information we can use the <code>dd</code> command to extract just part of the file beginning at given byte offset:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | head
+xref
+0 315
+0000000000 65535 f 
+0000004897 00000 n 
+0000004792 00000 n 
+0000000015 00000 n 
+0000588020 00000 n 
+0000572747 00000 n 
+0000587850 00000 n 
+0000571755 00000 n 
+</code></pre>
+
+<p>With help of <code>sed</code> tool we skip the first 3 lines (<code>xref</code> identifier, object number
+  and so called <code>ZERO</code> object) and with we <code>awk</code> generate the sequential object numbers
+  in front of each table line:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | sed 1,3d | awk '{print NR,$0}' | head
+1 0000004897 00000 n 
+2 0000004792 00000 n 
+3 0000000015 00000 n 
+4 0000588020 00000 n 
+5 0000572747 00000 n 
+6 0000587850 00000 n 
+7 0000571755 00000 n 
+8 0000552423 00000 n 
+9 0000571586 00000 n 
+10 0000551777 00000 n 
+</code></pre>
+
+<p>The result looks good so we can extract such cross reference table to a separate file
+for later use:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | sed 1,3d | awk '{print NR,$0}' &gt; test.pdf.xref
+</code></pre>
+
+<p>We can encapsulate this functionality to a helper script.</p>
+
+<p>It is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/initxref.sh">initxref.sh</a> and its usage is as follows:</p>
+
+<pre><code>$ ./initxref.sh test.pdf
+</code></pre>
+
+<h2>Extracting object</h2>
+
+<p>Now we look at the bottom of the PDF file once again:</p>
+
+<pre><code>$ tail test.pdf 
+0000588961 00000 n 
+0000589014 00000 n 
+trailer
+&lt;&lt; /Size 315
+/Root 313 0 R
+/Info 314 0 R
+/ID [&lt;E571FA644538D6F88683F97FDE1B2C10&gt; &lt;E571FA644538D6F88683F97FDE1B2C10&gt;] &gt;&gt;
+startxref
+589220
+%%EOF
+</code></pre>
+
+<p>... we can see that the document <code>Info</code> is stored as object number <code>314</code> and document Root as <code>313</code>.</p>
+
+<p>Now we try to convert the oject numbers to corresponding document offsets, we can use our <code>test.pdf.xref</code> for it:</p>
+
+<pre><code>$ OBJ=313; grep -e "^$OBJ " test.pdf.xref
+314 0000589014 00000 n
+</code></pre>
+
+<p>Good, now we cut just the second column containing value representing a byte offset:</p>
+
+<pre><code>$ OBJ=314; grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2
+0000589014
+</code></pre>
+
+<p>... and convert the value to its numeric representation:</p>
+
+<pre><code>$ OBJ=314; grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2 | bc
+589014
+</code></pre>
+
+<p>Now we can use the offset to actually extract the corresponding data from the PDF stream:</p>
+
+<pre><code>$ OBJ=314; OFFSET=$(grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2 | bc); dd if=test.pdf bs=1 skip=$OFFSET 2&gt;/dev/null | head
+314 0 obj &lt;&lt;
+/Producer (pdfeTeX-1.30.4)
+/Creator (TeX)
+/CreationDate (D:20060829204334-05'00')
+/PTEX.Fullbanner (This is pdfeTeX, Version 3.141592-1.30.4-2.2 (Web2C 7.5.5) kpathsea version 3.5.5)
+&gt;&gt; endobj
+...
+</code></pre>
+
+<p>Before we proceed, we can encapsulate the functionality to a simple script.</p>
+
+<p>It is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/catobj.sh">catobj.sh</a> and its usage is as follows:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 314
+</code></pre>
+
+<h2>Traversing hierarchy</h2>
+
+<p>And now we can start to inspect the document hierarchy:</p>
+
+<p>Document info:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 314
+314 0 obj &lt;&lt;
+   /Producer (pdfeTeX-1.30.4)
+   /Creator (TeX)
+   /CreationDate (D:20060829204334-05'00')
+   /PTEX.Fullbanner (This is pdfeTeX, Version 3.141592-1.30.4-2.2 (Web2C 7.5.5) kpathsea version 3.5.5)
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 313
+313 0 obj &lt;&lt;
+   /Type /Catalog
+   /Pages 312 0 R
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document pages tree root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 312
+312 0 obj &lt;&lt;
+   /Type /Pages
+   /Count 11
+   /Kids [22 0 R 245 0 R]
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document pages left sub-tree root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 22
+22 0 obj &lt;&lt;
+   /Type /Pages
+   /Count 6
+   /Parent 312 0 R
+   /Kids [2 0 R 24 0 R 30 0 R 48 0 R 58 0 R 179 0 R]
+&gt;&gt; endobj
+</code></pre>
+
+<p>Left-most (first) page:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 2
+2 0 obj &lt;&lt;
+   /Type /Page
+   /Contents 3 0 R
+   /Resources 1 0 R
+   /MediaBox [0 0 612 792]
+   /Parent 22 0 R
+&gt;&gt; endobj
+</code></pre>
+
+<p>Its content:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3
+3 0 obj &lt;&lt;
+   /Length 4698      
+   /Filter /FlateDecode
+&gt;&gt;
+stream
+...
+</code></pre>
+
+<h2>Extracting content</h2>
+
+<p>We see that the content has a form of a deflated stream, so we have to pass is through a zlib filter.</p>
+
+<p>But, first we have to skip the first 5 lines before the actual start of the stream data. So we compute the size of first 5 lines in bytes:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 | head -n5 | wc -c
+61
+</code></pre>
+
+<p>We also know the length of the compressed data is 4698 bytes, so now we can use the additional two parameters of our script
+(we do not want to print the binary data to the terminal, so for now we just count number of bytes):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | wc -c
+4698
+</code></pre>
+
+<p>In order to be able to actually read the content of the stream, we have to inflate it. We can use the <em>gzip</em> command for that,
+but first we have to prepare a wrapper script adding an artificial gzip header:</p>
+
+<pre><code>$ cat ./inflate.sh 
+#!/bin/sh
+( /bin/echo -ne '\037\0213\010\0\0\0\0\0' ; cat "$@" ) | gzip -dc 2&gt;/dev/null
+</code></pre>
+
+<p>Now we make the script executable:</p>
+
+<pre><code>$ chmod +x inflate.sh
+</code></pre>
+
+<p>The helper script is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/inflate.sh">inflate.sh</a>.</p>
+
+<p>Now we are ready to extract the content of deflated PDF stream (we can see the actual PDF interpreter commands):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | ./inflate.sh | head -n15
+1 0 0 1 54 720 cm
+0 g 0 G
+1 0 0 1 502.117 0 cm
+0 g 0 G
+1 0 0 1 -502.117 0 cm
+0 g 0 G
+1 0 0 1 46.144 -19.329 cm
+0 g 0 G
+0 g 0 G
+1 0 0 1 -100.144 -700.671 cm
+BT
+/F30 17.933 Tf 103.631 700.671 Td[(An)-250(Incr)18(emental)-250(A)25(ppr)18(oach)-250(to)-250(Compiler)...
+ET
+1 0 0 1 54 608.267 cm
+0 g 0 G
+</code></pre>
+
+<p>With a simple <code>sed</code> expression we can split and inspect the individual content command sequences
+(individual text strings interleaved with horizontal moves are apparent there):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | ./inflate.sh | awk 'NR==12' | sed -e "s/)/\"\n/g" -e "s/(/\n\"/g"
+/F30 17.933 Tf 103.631 700.671 Td[
+"An"
+-250
+"Incr"
+18
+"emental"
+-250
+"A"
+25
+"ppr"
+18
+"oach"
+-250
+"to"
+-250
+"Compiler"
+-250
+"Construction"
+]TJ/F31 10.959 Tf 156.836 -35.866 Td[
+"Abdulaziz"
+-250
+"Ghuloum"
+]TJ/F31 8.966 Tf -96.018 -14.944 Td[
+"Department"
+-250
+"of"
+-250
+...
+</code></pre>
+
+<p>It is clearly visible how the text content is represented. We can easily distinguish individual text elements
+interleaved with horizontal text cursor moves.</p>
+
+<p>However, this is not the only possible way how the texts are stored in a PDF file. The following section will
+demonstrate other possibility how the texts can be represented.</p>
+
+<h1>Cairo library output</h1>
+
+<p>I am using the <a href="http://cairographics.org/">Cairo library</a> for generating both rasters and PDF documents.</p>
+
+<p>There are various ways how to render texts in the Cairo API. Let's look at the individual variants:</p>
+
+<h1>Only text</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-text">cairo_show_text()</a> call.</p>
+
+<p>The text in PDF is not correctly shaped in some cases, but the original text is preserved if we copy
+it to clipboard or print its text content.</p>
+
+<h2>PDF document</h2>
+
+<p><a href="/docs/pdf/hb-deva-text.pdf">hb-deva-text.pdf</a></p>
+
+<h2>Text output</h2>
+
+<pre><code>  $ pdftotext hb-deva-text.pdf -
+  Marathi:
+  स्वागत आहे
+  आपले नाव काय आहे?
+  Hindi:
+  सवागत हैं
+  तुम्हारा नाम क्या है?
+  Sanskrit:
+  द + ् + ध + ् + र + ् + य = द्ध्र्य
+  पूर्वेभिर्र्षिभिरीड्यो
+</code></pre>
+
+<h1>Only glyphs</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-glyphs">cairo_show_glyphs()</a> call.</p>
+
+<p>The text looks visually correct, but the original text input is not preserved. It seems
+that someone is trying to heuristically map glyphs back to original text and store such text
+to the resulting PDF stream, but obviously this approach does not work well
+for <a href="http://en.wikipedia.org/wiki/Complex_text_layout">CTL texts</a>.</p>
+
+<h2>PDF document</h2>
+
+<p><a href="/docs/pdf/hb-deva-glyphs.pdf">hb-deva-glyphs.pdf</a></p>
+
+<h2>Text output</h2>
+
+<pre><code>   $ pdftotext hb-deva-glyphs.pdf -
+   Marathi:
+   �वागत आहे
+   आपले नाव काय आहे?
+   Hindi:
+   सवागत हंै
+   तु�हारा नाम �या है?
+   Sanskrit:
+   द + ् + ध + ् + र + ् + य = द्ध्र्य
+   पूव�िभ��ष�िभरी�ो
+</code></pre>
+
+<h2>PDF content inspection</h2>
+
+<p>Several methods how the glyph -> char mapping is being realized is decribed in <a href="http://www.glyphandcog.com/textext.html">this page</a>.</p>
+
+<p>Let's make a quick analysis of the <em>glyph-only</em> generated PDF file:</p>
+
+<p>First let's initialize the cross-reference table:</p>
+
+<pre><code>$ ./initxref.sh hb-deva-glyphs.pdf
+</code></pre>
+
+<p>Now we look at the end of the file to see where the object hierarchy starts:</p>
+
+<pre><code> $ tail hb-deva-glyphs.pdf -n8
+ trailer
+ &lt;&lt; /Size 15
+    /Root 14 0 R
+    /Info 13 0 R
+ &gt;&gt;
+ startxref
+ 21826
+ %%EOF
+</code></pre>
+
+<p>We can see that the root of the PDF object hierarchy starts at the object number 14, so let's look at it:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 14
+ 14 0 obj
+ &lt;&lt; /Type /Catalog
+     /Pages 1 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that the /Pages/ hierarchy starts at index 1:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 1
+ 1 0 obj
+ &lt;&lt; /Type /Pages
+     /Kids [ 6 0 R ]
+     /Count 1
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can go deeper to print the first (and only) /Page/ object - it is object number 6:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 6
+ 6 0 obj
+ &lt;&lt; /Type /Page
+    /Parent 1 0 R
+    /MediaBox [ 0 0 595.28 841.89 ]
+    /Contents 3 0 R
+    /Group &lt;&lt;
+        /Type /Group
+        /S /Transparency
+        /CS /DeviceRGB
+    &gt;&gt;
+    /Resources 2 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that the page /Contents/ is in object number 3:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3
+ 3 0 obj
+ &lt;&lt; /Length 4 0 R
+    /Filter /FlateDecode
+ &gt;&gt;
+ stream
+ ...
+ endstream
+ endobj
+</code></pre>
+
+<p>The stream content looks like a garbage. That's because it is deflated. So let's inflate it
+in order to see its content. For that we need to know the <em>exact start offset</em> and also
+the <em>size</em> of the stream.</p>
+
+<p>First we count the offset by counting number of characters of the object header:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3 | head -n5 | wc -c
+ 59
+</code></pre>
+
+<p>Then we print the content of the object 10 representing the soze of the stream:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 4
+ 4 0 obj
+     339
+ endobj
+</code></pre>
+
+<p>Now we are ready to read the actual stream content and pass it through the inflate filter:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3 339 59 | ./inflate.sh
+ q
+ 0 841.89 595 -841 re W n
+ 0.784314 0.784314 0.392157 rg /a0 gs
+ 50 791.89 500 -300 re f*
+ 0 0 0 rg BT
+ 24 0 0 24 50 766.237656 Tm
+ /f-0-0 1 Tf
+ &lt;00010002000300020004000500060007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;00080009000a000b000c000d000e000f&gt;-13&lt;0010&gt;]TJ
+ 0 -1.339844 Td
+ [&lt;000e001100120010000d0013000a0009000d0014000a0015000d000e000f&gt;-13&lt;0010&gt;13&lt;00
+ 16&gt;]TJ
+ 0 -1.339844 Td
+ &lt;001700060018001900060007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;001a0009000a000b000c000d000f&gt;-13&lt;001b001c&gt;]TJ
+ 0 -1.339844 Td
+ [&lt;000c001d001e000f000a001f000a000d0013000a0020000d00210015000a000d000f&gt;-13&lt;00
+ 1c&gt;13&lt;0016&gt;]TJ
+ 0 -1.339844 Td
+ &lt;002200020018002300240003000600040007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;0025000d0026000d0027000d0026000d0028000d0026000d0027000d0026000d001f
+ 000d0026000d0027000d0026000d0015000d0029000d0025&gt;-34&lt;0027&gt;34&lt;00280027
+ 001f&gt;22&lt;0027&gt;-22&lt;0015&gt;]TJ
+ 0 -1.339844 Td
+ &lt;0011002a0009002b002c002d002e002f00300031002c002d001f003200330034000d&gt;Tj
+ ET
+ Q
+</code></pre>
+
+<p>So we can distinguish the following kinds of commands:</p>
+
+<ul>
+<li><code>q</code>/<code>Q</code> ... save/restore <em>graphics state</em></li>
+<li><code>re W n</code> ... <em>rectangle</em> with winding rule specification and no fill/stroke</li>
+<li><code>rg /a0 gs</code> ... set <em>RGB color</em> and further manipulation of the <em>graphic state</em></li>
+<li><code>re f*</code> ... another <em>rectangle</em> with <em>fill rule</em></li>
+<li><code>rg</code> ... <em>RGB color</em> manipulation again</li>
+<li><code>BT</code>/<code>ET</code> ... begin/end of the <em>text object</em></li>
+<li><code>Tm</code> ... setting <em>text matrix</em></li>
+<li><code>Tf</code> ... setting <em>text font</em></li>
+<li><code>Tj</code> ... <em>show text</em> command</li>
+<li><code>Td</code> ... moving <em>text position</em></li>
+<li><code>TJ</code> ... <em>show text</em> command with individual glyph positioning</li>
+</ul>
+
+
+<p>If we look at an individual <code>Tj</code> command then we can see that there is a sequence of
+4-character glyph identifiers generated sequentially as the text on the page flows:</p>
+
+<p>The glyph sequence:</p>
+
+<pre><code> &lt; 0001 0002 0003 0002 0004 0005 0006 0007 &gt; Tj
+</code></pre>
+
+<p>represents text:</p>
+
+<pre><code>    M    a    r    a    t    h    i    :
+</code></pre>
+
+<p>(Note that the glyph <code>0002</code> is present at two places as it represents the <code>a</code> character)</p>
+
+<p>The <code>TJ</code> sequence represents sub-sequences of glyphs interleaved with horizontal cursor moves:</p>
+
+<pre><code> [ &lt; 0008 0009 000a 000b 000c 000d 000e 000f &gt; -13 &lt; 0010 &gt; ] TJ
+</code></pre>
+
+<p>But the question remains how we map the abstract <em>glyph IDs</em> back to a readable text?</p>
+
+<p>To be able to answer this question we need to extract the font resource associated with this text.</p>
+
+<p>Now we can look at the page resources. First lets dump the <code>Page</code> object again:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 6
+ 6 0 obj
+ &lt;&lt; /Type /Page
+    /Parent 1 0 R
+    /MediaBox [ 0 0 595.28 841.89 ]
+    /Contents 3 0 R
+    /Group &lt;&lt;
+         /Type /Group
+         /S /Transparency
+         /CS /DeviceRGB
+    &gt;&gt;
+    /Resources 2 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that PDF object <code>2</code> represents the <code>Resources</code>:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 2
+ 2 0 obj
+ &lt;&lt;
+    /ExtGState &lt;&lt;
+       /a0 &lt;&lt; /CA 1 /ca 1 &gt;&gt;
+    &gt;&gt;
+    /Font &lt;&lt;
+       /f-0-0 5 0 R
+    &gt;&gt;
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>The only <code>Font</code> resource is stored as object <code>5</code>:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 5
+ 5 0 obj
+ &lt;&lt; /Type /Font
+    /Subtype /Type0
+    /BaseFont /ZGXMCR+ArialUnicodeMS
+    /Encoding /Identity-H
+    /DescendantFonts [ 12 0 R]
+    /ToUnicode 9 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that there is a <code>ToUnicode</code> table stored as part of the <code>Font</code> resource:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9
+ 9 0 obj
+ &lt;&lt; /Length 10 0 R
+    /Filter /FlateDecode
+ &gt;&gt;
+ stream
+ ...
+ endstream
+ endobj
+</code></pre>
+
+<p>Obviously its content is in a deflated stream. So again we have to determine
+the font header size:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9 | head -n5 | wc -c
+ 60
+</code></pre>
+
+<p>And the stream size:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 10
+ 10 0 obj
+    447
+ endobj
+</code></pre>
+
+<p>And now we are ready to inflate the contents of the <code>ToUnicode</code> table:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9 447 60 | ./inflate.sh
+ /CIDInit /ProcSet findresource begin
+ 12 dict begin
+ begincmap
+ /CIDSystemInfo
+ &lt;&lt; /Registry (Adobe)
+    /Ordering (UCS)
+    /Supplement 0
+ &gt;&gt; def
+ /CMapName /Adobe-Identity-UCS def
+ /CMapType 2 def
+ 1 begincodespacerange
+ &lt;0000&gt; &lt;ffff&gt;
+ endcodespacerange
+ 52 beginbfchar
+ &lt;0001&gt; &lt;004d&gt;
+ &lt;0002&gt; &lt;0061&gt;
+ &lt;0003&gt; &lt;0072&gt;
+ &lt;0004&gt; &lt;0074&gt;
+ &lt;0005&gt; &lt;0068&gt;
+ &lt;0006&gt; &lt;0069&gt;
+ &lt;0007&gt; &lt;003a&gt;
+ &lt;0008&gt; &lt;fffd&gt;
+ &lt;0009&gt; &lt;0935&gt;
+ &lt;000a&gt; &lt;093e&gt;
+ &lt;000b&gt; &lt;0917&gt;
+ &lt;000c&gt; &lt;0924&gt;
+ &lt;000d&gt; &lt;0020&gt;
+ &lt;000e&gt; &lt;0906&gt;
+ &lt;000f&gt; &lt;0939&gt;
+ &lt;0010&gt; &lt;0947&gt;
+ &lt;0011&gt; &lt;092a&gt;
+ &lt;0012&gt; &lt;0932&gt;
+ &lt;0013&gt; &lt;0928&gt;
+ &lt;0014&gt; &lt;0915&gt;
+ &lt;0015&gt; &lt;092f&gt;
+ &lt;0016&gt; &lt;003f&gt;
+ &lt;0017&gt; &lt;0048&gt;
+ &lt;0018&gt; &lt;006e&gt;
+ &lt;0019&gt; &lt;0064&gt;
+ &lt;001a&gt; &lt;0938&gt;
+ &lt;001b&gt; &lt;0902&gt;
+ &lt;001c&gt; &lt;0948&gt;
+ &lt;001d&gt; &lt;0941&gt;
+ &lt;001e&gt; &lt;fffd&gt;
+ &lt;001f&gt; &lt;0930&gt;
+ &lt;0020&gt; &lt;092e&gt;
+ &lt;0021&gt; &lt;fffd&gt;
+ &lt;0022&gt; &lt;0053&gt;
+ &lt;0023&gt; &lt;0073&gt;
+ &lt;0024&gt; &lt;006b&gt;
+ &lt;0025&gt; &lt;0926&gt;
+ &lt;0026&gt; &lt;002b&gt;
+ &lt;0027&gt; &lt;094d&gt;
+ &lt;0028&gt; &lt;0927&gt;
+ &lt;0029&gt; &lt;003d&gt;
+ &lt;002a&gt; &lt;0942&gt;
+ &lt;002b&gt; &lt;fffd&gt;
+ &lt;002c&gt; &lt;093f&gt;
+ &lt;002d&gt; &lt;092d&gt;
+ &lt;002e&gt; &lt;fffd&gt;
+ &lt;002f&gt; &lt;fffd&gt;
+ &lt;0030&gt; &lt;0937&gt;
+ &lt;0031&gt; &lt;fffd&gt;
+ &lt;0032&gt; &lt;0940&gt;
+ &lt;0033&gt; &lt;fffd&gt;
+ &lt;0034&gt; &lt;094b&gt;
+ endbfchar
+ endcmap
+ CMapName currentdict /CMap defineresource pop
+ end
+ end
+</code></pre>
+
+<p>Let's print the <code>"Marathi:"</code> text as a sequence of hexadecimal characters:</p>
+
+<pre><code> $ hexdump&lt;&lt;&lt;"Marathi:"
+ 0000000 614d 6172 6874 3a69 000a
+ 0000009
+</code></pre>
+
+<p>When we reorder the character pairs then we get the following ASCII values:</p>
+
+<pre><code> 004d 0061 0072 0061 0074 0068 0069 003a
+</code></pre>
+
+<p>which is exactly what the following glyph sequence maps to:</p>
+
+<pre><code> &lt; 0001 0002 0003 0002 0004 0005 0006 0007 &gt;
+</code></pre>
+
+<p>So now we have an exact idea how the <em>glyph -> char</em> mapping is implemented.</p>
+
+<h1>Text &amp; glyphs</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-text-glyphs">cairo_show_text_glyphs()</a> call.</p>
+
+<p>This approach has best from both previous approaches. It provides a correct visual text representation
+as well as preserves the original text content.</p>
+
+<h2>PDF output</h2>
+
+<pre><code>  [hb-deva-text-glyphs.pdf](/docs/pdf/hb-deva-text-glyphs.pdf)
+</code></pre>
+
+<h2>Text output</h2>
+
+<pre><code>  $ pdftotext hb-deva-text-glyphs.pdf -
+  Marathi:
+  स्वागत आहे
+  आपले नाव काय आहे?
+  Hindi:
+  सवागत हैं
+  तुम्हारा नाम क्या है?
+  Sanskrit:
+  द + ् + ध + ् + र + ् + य = द्ध्र्य
+  पूर्वेभिर्र्षिभिरीड्यो
+</code></pre>
+
+<h2>PDF code inspection</h2>
+
+<p>First we have to initialize the cross-reference table dump:</p>
+
+<pre><code> $ ./initxref.sh hb-deva-text-glyphs.pdf
+</code></pre>
+
+<p>Now we can go down the object hierarchy exactly the same way as in the prevous case.
+The difference is that now the text content is slightly different:</p>
+
+<pre><code>  $ ./catobj.sh hb-deva-text-glyphs.pdf 3 529 59 | ./inflate.sh 
+  q
+  0 841.89 595 -841 re W n
+  0.784314 0.784314 0.392157 rg /a0 gs
+  50 791.89 500 -300 re f*
+  0 0 0 rg BT
+  24 0 0 24 50 766.237656 Tm
+  /f-0-0 1 Tf
+  &lt;00010002000300020004000500060007&gt;Tj
+  0 -1.339844 Td
+  &lt;0008&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0935093e&gt; &gt;&gt; BDC
+  &lt;0009000a&gt;Tj
+  EMC
+  &lt;000b000c000d000e&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09390947&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;0010&gt;]TJ
+  EMC
+  0 -1.339844 Td
+  &lt;000e0011&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09320947&gt; &gt;&gt; BDC
+  &lt;00120010&gt;Tj
+  EMC
+  &lt;000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0928093e&gt; &gt;&gt; BDC
+  &lt;0013000a&gt;Tj
+  EMC
+  &lt;0009000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0915093e&gt; &gt;&gt; BDC
+  &lt;0014000a&gt;Tj
+  EMC
+  &lt;0015000d000e&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09390947&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;0010&gt;]TJ
+  EMC
+  [&lt;&gt;13&lt;0016&gt;]TJ
+  0 -1.339844 Td
+  &lt;001700060018001900060007&gt;Tj
+  0 -1.339844 Td
+  &lt;001a&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0935093e&gt; &gt;&gt; BDC
+  &lt;0009000a&gt;Tj
+  EMC
+  &lt;000b000c000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff093909480902&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;001b001c&gt;]TJ
+  EMC
+  /Span &lt;&lt; /ActualText &lt;feff09240941&gt; &gt;&gt; BDC
+  0 -1.339844 Td
+  ...
+</code></pre>
+
+<p>So we can distinguish the following new commands:</p>
+
+<ul>
+<li><code>BDC</code>/<code>EDC</code> ... begin/end marked content sequence</li>
+</ul>
+
+
+<p>So in this variant we can see that individual clusters of presentation glyphs are interleaved with
+<code>ActualText</code> spans. That is the case just for texts where it is necessary - e.g. The first line
+containing ascii text <code>"Marathi:"</code> is still encoded the same way as in the previous case containing
+just glyphs.</p>
+
+  </div>
+
+  <div><a name="/programming/unix/cpp/2011/10/05/hp-crash-analysis/">&nbsp;</a>
+    <h1>Overview</h1>
+
+<p>  <em>32-bit HP-UX (PA-RISC) aCC compiler bug</em></p>
+
+<p>  The <em>+hpxstd98</em> compiler option causes that the compiler generates incorrect assembly code
+  for a perfectly correct source code.</p>
+
+<h1>Compiler option description</h1>
+
+<pre><code>  +hpxstd98      Turns on  a new, standard compliant compilation mode.
+                 This option provides a rich set of diagnostics, better
+                 support for templates (including support for template-
+                 template parameters) and is independent of other
+                 compilation options.  Objects created using this option
+                 are completely binary compatible with those created
+                 without using this option and also with the objects
+                 created using earlier versions of the compiler.
+</code></pre>
+
+<p>This option is necessary for building the <a href="http://www.boost.org/">Boost C++ libraries</a>
+(see <a href="http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801?ciid=4a083a7373f021103a7373f02110275d6e10RCRD#faq-boost-lib">HP aC++ FAQ</a>).</p>
+
+<h2>Compiler version</h2>
+
+<p>If we check the compiler version:</p>
+
+<pre><code>$ aCC --version         
+aCC: HP ANSI C++ B3910B A.03.80
+</code></pre>
+
+<p>... we can see that the version of the compiler is <code>A.03.80</code>, but currently there are two more recent versions available: <code>A.03.85</code> and <code>A.03.90</code>
+(see <a href="http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801/?ciid=2645dec4c7563110VgnVCM100000275d6e10RCRD#b11.23pa">HP aC++ release history for PA-RISC servers</a></p>
+
+<h1>Steps to reproduce the problem</h1>
+
+<h2>Prepare the program</h2>
+
+<ul>
+<li><p>Download the following simple c++ file demonstrating the problem:</p>
+
+<p>  <a href="https://github.com/filodej/filodej.github.com/blob/master/code/hp/crashtest.cxx">crashtest.cxx</a></p>
+
+<p>... the program is standard C++ code and is succesfully compiled with the <a href="http://www.comeaucomputing.com/tryitout/">Comeau compiler test drive</a>.</p></li>
+</ul>
+
+
+<h2>The correct version</h2>
+
+<ul>
+<li><p>Compile the file with the aCC compiler</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC crashtest.cxx
+</code></pre></li>
+<li><p>Run the program (without and with a command line argument):</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ ./a.out          
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+OK!
+
+autotest@hpux7:~/bld/crash_test$ ./a.out 1
+Heap allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+OK!
+</code></pre>
+
+<p>... the program runs without a problem</p></li>
+</ul>
+
+
+<h2>The incorrect version</h2>
+
+<ul>
+<li><p>Compile the program again, now with the /+hpxstd98/ compiler flag</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 crashtest.cxx
+</code></pre></li>
+<li><p>Run the newly compiled program (without and with a command line argument):</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ ./a.out  
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+Segmentation fault
+
+autotest@hpux7:~/bld/crash_test$ ./a.out 1                  
+Heap allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+Bus error
+</code></pre></li>
+</ul>
+
+
+<h1>Analysis</h1>
+
+<h2>Debug the program</h2>
+
+<ul>
+<li><p>Disable the printf commands</p>
+
+<p>Uncomment the following statement:</p>
+
+<pre><code>#define printf(TXT)
+</code></pre></li>
+<li><p>Compile the program with debug info</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 -g0 crashtest.cxx
+</code></pre></li>
+<li><p>Run the debuger</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ gdb a.out            
+HP gdb 6.1 for PA-RISC 1.1 or 2.0 (narrow), HP-UX 11i 
+and target hppa1.1-hp-hpux11.00.
+Copyright 1986 - 2009 Free Software Foundation, Inc.
+Hewlett-Packard Wildebeest 6.1 (based on GDB) is covered by the
+GNU General Public License. Type "show copying" to see the conditions to
+change it and/or distribute copies. Type "show warranty" for warranty/support.
+..
+</code></pre></li>
+<li><p>Run the program</p>
+
+<pre><code>(gdb) r
+Starting program: /home/autotest/bld/crash_test/a.out 
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+
+Program received signal SIGSEGV, Segmentation fault
+  si_code: 0 - SEGV_UNKNOWN - Unknown Error.
+0x1864 in $$dyncall_external_20+0 ()
+</code></pre></li>
+<li><p>See where we are</p>
+
+<pre><code>(gdb) where
+#0  0x1864 in $$dyncall_external_20+0 ()
+#1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
+</code></pre></li>
+<li><p>Look at the source code</p>
+
+<pre><code>(gdb) list
+41                      m_state.m_noop.noop(); // crash :-(
+42                      printf("OK!\n");
+43              }
+44      private:
+45          NoopState const&amp; m_state;
+46      };
+47      
+48      int main(int argc, char* argv[])
+49      {
+50              Noop stack_noop;
+</code></pre></li>
+<li><p>Look at the disassembly</p>
+
+<pre><code>(gdb) disass
+Dump of assembler code for function $$dyncall_external_20:
+0x1864 &lt;$$dyncall_external_20&gt;: ldw 2(%r22),%r19
+0x1868 &lt;$$dyncall_external_20+0x4&gt;:     ldw -2(%r22),%r22
+0x186c &lt;$$dyncall_external_20+0x8&gt;:     bve (%r22)
+0x1870 &lt;$$dyncall_external_20+0xc&gt;:     stw %rp,-0x18(%sp)
+</code></pre></li>
+<li><p>Go one level up</p>
+
+<pre><code>(gdb) up
+#1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
+64              test.crash();
+</code></pre></li>
+<li><p>Show disassembly again</p>
+
+<pre><code>(gdb) disass
+Dump of assembler code for function main:
+;;; File: crashtest.cxx
+;;;  49 {
+
+...
+
+;;;  62         CrashTest test( state );
+0x2e58 &lt;main+0x78&gt;:     ldo -0x38(%sp),%r20
+0x2e5c &lt;main+0x7c&gt;:     stw %r20,-0x34(%sp)
+;;;  64         test.crash();
+0x2e60 &lt;main+0x80&gt;:     ldil L'0x3000,%r21
+0x2e64 &lt;main+0x84&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2e68 &lt;main+0x88&gt;:     ldo 0x528(%r21),%r26
+0x2e6c &lt;main+0x8c&gt;:     ldw -0x34(%sp),%r22
+0x2e70 &lt;main+0x90&gt;:     ldw 0(%r22),%r1
+0x2e74 &lt;main+0x94&gt;:     copy %r1,%r26
+0x2e78 &lt;main+0x98&gt;:     ldw 0(%r26),%r31
+0x2e7c &lt;main+0x9c&gt;:     ldo 0x10(%r31),%r19
+0x2e80 &lt;main+0xa0&gt;:     ldw 0(%r19),%r22
+0x2e84 &lt;main+0xa4&gt;:     b,l 0x1864 &lt;$$dyncall_external_20&gt;,%r31
+0x2e88 &lt;main+0xa8&gt;:     copy %r31,%rp
+0x2e8c &lt;main+0xac&gt;:     ldil L'0x3000,%r20
+0x2e90 &lt;main+0xb0&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2e94 &lt;main+0xb4&gt;:     ldo 0x540(%r20),%r26
+0x2e98 &lt;main+0xb8&gt;:     ldw -0x34(%sp),%r21
+0x2e9c &lt;main+0xbc&gt;:     ldw 0(%r21),%r22
+0x2ea0 &lt;main+0xc0&gt;:     ldo 0x10(%r22),%r1
+0x2ea4 &lt;main+0xc4&gt;:     ldw 0(%r1),%r22
+0x2ea8 &lt;main+0xc8&gt;:     copy %r21,%r26
+0x2eac &lt;main+0xcc&gt;:     b,l 0x1864 &lt;$$dyncall_external_20&gt;,%r31
+0x2eb0 &lt;main+0xd0&gt;:     copy %r31,%rp
+0x2eb4 &lt;main+0xd4&gt;:     ldil L'0x3000,%r31
+0x2eb8 &lt;main+0xd8&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2ebc &lt;main+0xdc&gt;:     ldo 0x4e8(%r31),%r26
+0x2ec0 &lt;main+0xe0&gt;:     ldi 0,%ret0
+;;;  65 }
+0x2ec4 &lt;main+0xe4&gt;:     copy %ret0,%ret0
+0x2ec8 &lt;main+0xe8&gt;:     ldw -0x54(%sp),%rp
+0x2ecc &lt;main+0xec&gt;:     ret 
+End of assembler dump.
+</code></pre></li>
+</ul>
+
+
+<h2>Analyse the disassembly</h2>
+
+<ul>
+<li><p>Dump the disassembly of both compiled versions (without and with the compiler flag) and compare those for differences</p></li>
+<li><p>Cut the address prefixes (addresses always differ):</p>
+
+<pre><code>$ cat /tmp/disass-crash.txt | cut -d':' -f2 &gt; /tmp/disass-crash-cut.txt
+$ cat /tmp/disass-ok.txt | cut -d':' -f2 &gt; /tmp/disass-ok-cut.txt
+</code></pre></li>
+<li><p>Show the assembly diff</p>
+
+<pre><code>$ diff -y /tmp/disass-{ok,crash}-cut.txt
+(gdb) disass main                                       (gdb) disass main
+
+  crashtest.cxx                                           crashtest.cxx
+ ;;;  49 {                                               ;;;  49 {
+      stw %rp,-0x14(%sp)                                      stw %rp,-0x14(%sp)
+      ldo 0x40(%sp),%sp                                       ldo 0x40(%sp),%sp
+      stw %r26,-0x64(%sp)                                     stw %r26,-0x64(%sp)
+      call 0x2d98 &lt;_main&gt;                                     call 0x2d98 &lt;_main&gt;
+      stw %r25,-0x68(%sp)                                     stw %r25,-0x68(%sp)
+ ;;;  50         Noop stack_noop;                        ;;;  50         Noop stack_noop;
+      addil L'-0x800,%dp,%r1                                  addil L'-0x800,%dp,%r1
+      ldo 0x6c8(%r1),%r1                                      ldo 0x6c8(%r1),%r1
+      stw %r1,-0x40(%sp)                                      stw %r1,-0x40(%sp)
+ ;;;  51         Noop const* noop(&amp;stack_noop);          ;;;  51         Noop const* noop(&amp;stack_noop);
+      ldo -0x40(%sp),%r31                                     ldo -0x40(%sp),%r31
+      stw %r31,-0x3c(%sp)                                     stw %r31,-0x3c(%sp)
+ ;;;  53         if ( argc == 2 )                        ;;;  53         if ( argc == 2 )
+      ldw -0x64(%sp),%r19                                     ldw -0x64(%sp),%r19
+      cmpib,&lt;&gt;,n 2,%r19,0x2e10 &lt;main+0x58&gt;                    cmpib,&lt;&gt;,n 2,%r19,0x2e10 &lt;main+0x58&gt;
+ ;;;  56                 noop = new Noop;              &lt;
+      ldi 0,%r20                                              ldi 0,%r20
+      call 0x2da8 &lt;operator new(unsigned long)&gt;               call 0x2da8 &lt;operator new(unsigned long)&gt;
+      ldi 4,%r26                                              ldi 4,%r26
+      copy %ret0,%r21                                         copy %ret0,%r21
+      cmpib,=,n 0,%r21,0x2e08 &lt;main+0x50&gt;                     cmpib,=,n 0,%r21,0x2e08 &lt;main+0x50&gt;
+      addil L'-0x800,%dp,%r1                                  addil L'-0x800,%dp,%r1
+      ldo 0x6c8(%r1),%r22                                     ldo 0x6c8(%r1),%r22
+      stw %r22,0(%r21)                                        stw %r22,0(%r21)
+      b 0x2e10 &lt;main+0x58&gt;                             | ;;;  56                 noop = new Noop;
+      stw %r21,-0x3c(%sp)                                     stw %r21,-0x3c(%sp)
+ ;;;  61         NoopState state( *noop );               ;;;  61         NoopState state( *noop );
+                                                       &gt;      b,n 0x2e10 &lt;main+0x58&gt;
+      ldw -0x3c(%sp),%r1                                      ldw -0x3c(%sp),%r1
+      stw %r1,-0x38(%sp)                                      stw %r1,-0x38(%sp)
+ ;;;  62         CrashTest test( state );                ;;;  62         CrashTest test( state );
+      ldo -0x38(%sp),%r31                                     ldo -0x38(%sp),%r31
+      stw %r31,-0x34(%sp)                                     stw %r31,-0x34(%sp)
+ ;;;  64         test.crash();                           ;;;  64         test.crash();
+      ldw -0x34(%sp),%r19                                     ldw -0x34(%sp),%r19
+      ldw 0(%r19),%r20                                        ldw 0(%r19),%r20
+      copy %r20,%r26                                          copy %r20,%r26
+      ldw 0(%r26),%r21                                        ldw 0(%r26),%r21
+      ldo 0x10(%r21),%r22                                     ldo 0x10(%r21),%r22
+      ldw 0(%r22),%r22                                        ldw 0(%r22),%r22
+      b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+      copy %r31,%rp                                           copy %r31,%rp
+      ldw -0x34(%sp),%r1                                      ldw -0x34(%sp),%r1
+      ldw 0(%r1),%r31                                         ldw 0(%r1),%r31
+      ldw 0(%r31),%r19                                 |      ldo 0x10(%r31),%r19
+      ldo 0x10(%r19),%r20                              |      ldw 0(%r19),%r22
+      ldw 0(%r20),%r22                                 |      copy %r1,%r26
+      copy %r31,%r26                                   &lt;
+      b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+      copy %r31,%rp                                           copy %r31,%rp
+      ldi 0,%ret0                                             ldi 0,%ret0
+ ;;;  65 }                                               ;;;  65 }
+      copy %ret0,%ret0                                        copy %ret0,%ret0
+      ldw -0x54(%sp),%rp                                      ldw -0x54(%sp),%rp
+      ret                                                     ret 
+ End of assembler dump.                                  End of assembler dump.
+</code></pre>
+
+<p>The version of the call realized over two levels of accessed members:</p>
+
+<pre><code>m_state.m_noop.noop(); // crash :-(
+</code></pre>
+
+<p>... was generated differently.</p>
+
+<p>On the other hand the code generated for the first version of the call (withe reference retrieved wia the noop() getter):</p>
+
+<pre><code>m_state.noop().noop(); // no crash :-)
+</code></pre></li>
+</ul>
+
+
+<p> ... was generated correctly and identically in both cases.</p>
+
+<ul>
+<li><p>Look at the interesting part</p>
+
+<pre><code>copy %r31,%rp                                           copy %r31,%rp
+ldw -0x34(%sp),%r1                                      ldw -0x34(%sp),%r1
+ldw 0(%r1),%r31                                         ldw 0(%r1),%r31
+ldw 0(%r31),%r19                                 |      ldo 0x10(%r31),%r19
+ldo 0x10(%r19),%r20                              |      ldw 0(%r19),%r22
+ldw 0(%r20),%r22                                 |      copy %r1,%r26
+copy %r31,%r26                                   &lt;
+b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+copy %r31,%rp                                           copy %r31,%rp
+ldi 0,%ret0                                             ldi 0,%ret0
+</code></pre></li>
+<li><p>Pseudocode</p>
+
+<p>I have no experience with the PA-RISC instruction set so the following is just a wild guess.</p>
+
+<p>We try to translate the sequence of the instructions to a more readable pseudocode:</p>
+
+<p>The correct version:</p>
+
+<pre><code> r31 = r1[0]
+ r19 = r31[0]
+ r20 = r19[0x10]
+ r22 = r20[0]
+ r26 = r31
+</code></pre>
+
+<p>The incorrect version:</p>
+
+<pre><code> r31 = r1[0];
+ r19 = r31[0x10];
+ r22 = r19[0];
+ r26 = r1;
+</code></pre></li>
+<li><p>Substitute the registers</p>
+
+<p>When we simplify the sequence by substituting the registers for their corresponding values,
+we clearly see the differences:</p>
+
+<p>The correct version:</p>
+
+<pre><code> r22 = *(r1[0][0][0x10]);
+ r26 = *r1;
+</code></pre>
+
+<p>The incorrect version:</p>
+
+<pre><code> r22 = *(r1[0x10][0]);
+ r26 = r1;
+</code></pre></li>
+</ul>
+
+
+<h2>Conclusion</h2>
+
+<p>   It seems that the two registers above contain:</p>
+
+<ul>
+<li> r22 ... virtual function address</li>
+<li> r26 ... object address</li>
+</ul>
+
+
+<p>   There are two <code>r1</code> register dereferences with the offset 0 bytes, those probably correspond to the code:</p>
+
+<pre><code>this-&gt;m_state.m_noop
+</code></pre>
+
+<p>   ... then there is one more dereference with offset 16 bytes, it seemingly correspond to a retrieval of the <em>Noop vtable</em>
+   and then there is one final dereference corresponding to the <em>vtable lookup</em>.</p>
+
+<p>   The virtual call itself is realized as so called <em>long call</em> with the BLE followed by the COPY instruction
+   (see section 2.5.5 of the <a href="http://ftp.parisc-linux.org/docs/arch/rad_11_0_32.pdf">The 32-bit PA-RISC Run-time Architecture Document</a>).</p>
+
+<p>   For some reason when the <em>+hpxstd98</em> compiler option is used the generated code differs considerably,
+   some of the dereferences are completely missing.</p>
+
+<p>   This causes <code>Bus Error</code> in some cases, <code>Segmentation fault</code> in other.
+   That seem to depend on the address of the <em>Noop</em> object
+   (in some cases the <code>LDW</code> instruction complains about its alignment which causes <code>SIGBUS</code> signal just before the <code>SEGFAULT</code>).</p>
+
+  </div>
+
+  <div><a name="/wmu6500fs/linux/2009/11/19/print-server/">&nbsp;</a>
+    <blockquote><p>Note: this is just a slightly modified version of my <a href="http://filodej.blogspot.com/2009/11/print-server.html">original BlogSpot post</a>.
+I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to <a href="http://en.wikipedia.org/wiki/Markdown">MarkDown</a>).</p></blockquote>
+
+<h1>Introduction</h1>
+
+<p>Since I have one LPT printer and several computers at home I considered buing a print server for a long time. What reliably discouraged me however was the price - for example <a href="http://h10010.www1.hp.com/wwpc/us/en/sm/WF02d/18972-18972-236253.html">HP print server</a> price starts at around <em>$140</em>.</p>
+
+<p>Unfortunately I haven't bought a router with USB ports like <a href="http://reviews.cnet.com/routers/asus-wl-500w-802/4505-3319_7-32076385.html">Asus WL-500W</a>, but rather <a href="http://www.linksysbycisco.com/US/en/products/WRT54GL">Linksys WRT54GL</a> and so the printer sharing as described at <a href="http://www.dd-wrt.com/wiki/index.php/USB_printer_sharing">DD-WRT wiki</a> was not applicable in my case.</p>
+
+<p>Then I noticed that there is a <a href="http://p910nd.sourceforge.net">p910nd</a> print daemon
+<a href="http://mgb111.pradnik.net/addons/servers-print/p910nd-0.92-081017.tar">package</a> available at the JoKer's site.</p>
+
+<p>There was not much information about the installation on the Web and so I was pretty unsure but I decided to give it a try.</p>
+
+<blockquote><p>Note: Before you follow the steps I describe here, please, make sure your printer is compliant with the <a href="http://en.wikipedia.org/wiki/JetDirect">JetDirect</a> technology.</p></blockquote>
+
+<h1>Hardware installation</h1>
+
+<p>My <a href="http://h20000.www2.hp.com/bizsupport/TechSupport/Document.jsp?objectID=bpl05920&amp;prodTypeId=18972&amp;prodSeriesId=25470">HP LaserJet 1100</a>
+printer is not USB but LPT, so there is some USB to LPT reduction necessary.</p>
+
+<p>I also realized that there is not a <a href="http://sewelldirect.com/ParallelCable15Foot.asp">standard printer cable</a>
+but rather a <a href="http://sewelldirect.com/ParallelCableMiniCentronics10Foot.asp">Mini Centronics cable</a>
+used for the printer connection.</p>
+
+<p>So it seemed that besides something like the <a href="http://sewelldirect.com/usbtoparallel.asp">USB to Parallel port adapter</a> ($14)
+also another reduction like <a href="http://sewelldirect.com/centronicstomini.asp">Centronics to Mini Centronics adapter</a> ($11)
+was necessary (there is also <a href="http://sewelldirect.com/USB-to-Mini-Centronics-Combo-Cable-Set.asp">a combo</a> for $24
+so you can spare a buck ;).</p>
+
+<p>Since I already had a standard printer cable the best choice for me was the <a href="http://www.sunrichtech.com.hk/assign.asp?keyid=ba13">ST Lab U-370 Dongle</a>.
+For only $11 does the job very well.</p>
+
+<p>So that's it regarding to hardware installation.</p>
+
+<h1>Software installation</h1>
+
+<p>We download and install the <em>p910nd</em> print daemon (I use the <a href="http://mgb111.pradnik.net/addons/servers-print/p910nd-0.92-081017.tar">0.92 version</a> as I had no luck with the latest <a href="http://mgb111.pradnik.net/addons/servers-print/p910nd-0.93%2BminiLpd-0.4-090618.tar">version 0.93</a>, I got a <code>/var/lock/subsys/p9100d file not found</code> error.</p>
+
+<p><em>Edit: now the problem with 0.93 is solved, see the discussion below</em></p>
+
+<pre><code>box# cd /mnt/C
+box# wget http://mgb111.pradnik.net/addons/servers-print/p910nd-0.92-081017.tar
+box# tar xvf p910nd-0.92-081017.tar
+./sys/
+./sys/etc/
+./sys/man/
+./sys/man/man8/
+./sys/man/man8/p910nd.8
+./sys/sbin/
+./sys/sbin/p910nd
+</code></pre>
+
+<p>Now we are ready to plug the printer to USB port (suppose you use the USB1 port specifically) and run the daemon:</p>
+
+<pre><code>box# /mnt/C/sys/sbin/p910nd -b -f /dev/usblp0
+</code></pre>
+
+<p>We can see that the process is now up and running. The fact that it is named <code>p9100d</code> (instead of original <code>p910nd</code>)
+means that it is listening at port <code>9100</code>.</p>
+
+<pre><code>box# ps | grep p910
+  271 root        284 S   /mnt/C/sys/sbin/p9100d -b -f /dev/usblp0
+ 1863 root        216 S   grep p910
+</code></pre>
+
+<p>We can make sure it is actually listening at the port; when we run the <a href="http://en.wikipedia.org/wiki/Netstat">network statistics</a>
+to list all the ports all the processes are are listening for, newly we can see the
+<a href="http://en.wikipedia.org/wiki/JetDirect">jetdirect</a> port.</p>
+
+<pre><code>box# netstat -l
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+...
+tcp        0      0 *:jetdirect             *:*                     LISTEN      
+...
+</code></pre>
+
+<p>We can also look at the <a href="http://en.wikipedia.org/wiki/Syslog">system log</a>
+(with help of the <a href="http://en.wikipedia.org/wiki/Dmesg">dmesg command</a> ).
+There we can find something similar to the following:</p>
+
+<pre><code>box# dmesg
+...
+hub.c: new USB device 00:0a.0-2, assigned address 2
+printer.c: usblp0: USB Bidirectional printer dev 2 if 0 alt 1 proto 2 vid 0x067B pid 0x2305
+...
+</code></pre>
+
+<p>When we retrieve the description string of the USB device, we get that there is a
+<a href="http://en.wikipedia.org/wiki/IEEE_1284">IEEE-1284 (parallel communication) controller</a>
+made by the <a href="http://www.prolific.com.tw/eng/product.asp">Prolific Technology Inc.</a>.</p>
+
+<pre><code>box# cat /proc/printer/usblp0
+Prolific Technology Inc. IEEE-1284 Controller
+0x18
+</code></pre>
+
+<p>Note that in case you have a USB printer you should probably expect somewhat more meaningful string like</p>
+
+<pre><code>Hewlett-Packard HP LaserJet 1005 series
+</code></pre>
+
+<p>Now we are ready to try some printing:</p>
+
+<pre><code>box# echo "printer test" &amp;gt; /dev/usblp0 
+...
+</code></pre>
+
+<p>Initially I got the following error message:</p>
+
+<pre><code>bash: /dev/usblp0: Device or resource busy
+</code></pre>
+
+<p>... then I realized that there is a <code>mini-lpd</code> process running holding the device.</p>
+
+<p><a href="http://nico.schotteli.us/papers/linux/cconfig/cconfig/node14.html">mini-lpd</a>
+is a small, non-queueing <a href="http://en.wikipedia.org/wiki/Line_Printer_Daemon_protocol">LPD</a>
+implementation. I do not know why there is <em>mini-lpd</em> active on the box, I have not tried
+to make it work, I just killed it and used <em>p910nd</em> daemon instead:</p>
+
+<pre><code>box# killall mini-lpd
+</code></pre>
+
+<p>After that everything started to work.</p>
+
+<p>To make the changes permanent, I have added add the following lines:</p>
+
+<pre><code>### printserv
+killall mini-lpd
+/mnt/C/sys/sbin/p910nd -b -f /dev/usblp0 &amp;
+</code></pre>
+
+<p>to the <code>/mnt/C/sys/etc/rc-local</code> file.</p>
+
+<p>Ok, that's it on the server side, let's look at the clients...</p>
+
+<h1>Client installation</h1>
+
+<p>Now it is time to install the print clients:</p>
+
+<h2>Windows XP</h2>
+
+<p>I presume you already have the printer installed locally, and so the only thing you need is to create
+a new port and set it up as a <em>Standard TCP/IP Port</em>:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXHBhkQI/AAAAAAAADXk/z3jzSXoj_JM/s1600/AddPort.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 367px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXHBhkQI/AAAAAAAADXk/z3jzSXoj_JM/s400/AddPort.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405766907169181954" /></a></p>
+
+<p>Now you select the box IP or network name:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXfBtjxI/AAAAAAAADXs/Ois8pkBCuqg/s1600/AddPort2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 312px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXfBtjxI/AAAAAAAADXs/Ois8pkBCuqg/s400/AddPort2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405766913612418834" /></a></p>
+
+<p>As a device type you choose the <em>Hewlett Pacjkard Jet Direct</em>:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXvWS70I/AAAAAAAADX0/gwfbpkaLmxY/s1600/DeviceType.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 295px; height: 400px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUkXvWS70I/AAAAAAAADX0/gwfbpkaLmxY/s400/DeviceType.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405766917993721666" /></a></p>
+
+<p>Here is a result page (<a href="http://en.wikipedia.org/wiki/Simple_Network_Management_Protocol">SNMP</a> not supported, RAW protocol, port 9100):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUkX7PF0BI/AAAAAAAADX8/ZIDoMIS6Sh4/s1600/Result.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 311px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUkX7PF0BI/AAAAAAAADX8/ZIDoMIS6Sh4/s400/Result.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405766921184727058" /></a></p>
+
+<p>Here we see the newly created port:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SwUkYFnzTsI/AAAAAAAADYE/Y3BP6N_I2JA/s1600/Ports.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 362px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SwUkYFnzTsI/AAAAAAAADYE/Y3BP6N_I2JA/s400/Ports.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405766923972726466" /></a></p>
+
+<p>And finally we are ready to print test page:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SwUkuTlgpPI/AAAAAAAADYM/-JNOc1gd_sM/s1600/PrintTestPage.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 362px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SwUkuTlgpPI/AAAAAAAADYM/-JNOc1gd_sM/s400/PrintTestPage.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405767305678333170" /></a></p>
+
+<h2>Ubuntu 9.10</h2>
+
+<p>In menu <em>System/Administration/Printing</em> we choose to create a new printer and
+in device selection choose <em>Network Printer</em> and <em>AppSocket/HP JetDirect</em>.
+In <em>Host</em> and <em>Port</em> fields we fill the box IP or network name and as port we use 9100:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUm69kdNVI/AAAAAAAADYs/NKrfdJIfWGA/s1600/NewPrinter.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 388px; height: 400px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUm69kdNVI/AAAAAAAADYs/NKrfdJIfWGA/s400/NewPrinter.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405769722129888594" /></a></p>
+
+<p>The next step is the Printer model and driver selection:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6kOACyI/AAAAAAAADYk/hkbpQyoygBU/s1600/PrinterDriver.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 357px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6kOACyI/AAAAAAAADYk/hkbpQyoygBU/s400/PrinterDriver.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405769715324816162" /></a></p>
+
+<p>Now we can specify the printer name and description:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6Z5TxjI/AAAAAAAADYc/MREPBvVeA74/s1600/DescribePrinter.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 357px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6Z5TxjI/AAAAAAAADYc/MREPBvVeA74/s400/DescribePrinter.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405769712553674290" /></a></p>
+
+<p>And finally we are ready to print test page:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6Nhm1QI/AAAAAAAADYU/O37QpA5nahk/s1600/PrintTestPage.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 357px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SwUm6Nhm1QI/AAAAAAAADYU/O37QpA5nahk/s400/PrintTestPage.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5405769709233034498" /></a></p>
+
+<h1>Links</h1>
+
+<ul>
+<li>For those who interested in a variety of connectors, here is a link to a  <a href="http://www.systemconnection.com/downloads/PDFs/connector_guide.pdf">Connector guide PDF</a></li>
+<li>Here is a <a href="http://forums13.itrc.hp.com/service/forums/questionanswer.do?admit=109447627+1258624587582+28353475&amp;threadId=778999">forum regarding HP LaserJet 1100 USB connection</a></li>
+<li>Here is a document regarding <a href="http://h20000.www2.hp.com/bizsupport/TechSupport/Document.jsp?objectID=bpj05999">Making HP Jetdirect Print Servers Secure on a Network</a> I do not know whether it has any relevance, I did not look at it so far</li>
+<li>Here is an <a href="ftp://airliveftp.dyndns.org/Multimedia/WMU-6000FS/AirLive_WMU-6000FS_Manual.pdf">AirLive WMU-6000FS installation manual (PDF)</a> containing print server installation</li>
+</ul>
+
+
+  </div>
+
+  <div><a name="/2009/03/26/port-forwarding-remote-desktop/">&nbsp;</a>
+    <h3>Overview</h3>
+
+In the company I am working as a developer we have relatively flexible rules how to organize working time (some workdays we can work from home assuming we are online and easily accessible by other team members). On the other side there are strict IT rules and firewall settings complicating the remote access.<br/> 
+The e-mail access and even the remote desktop access is officially possible just via a web portal provided that you withstand a tedious login process and unbearable refresh rate (not speaking of an odd interference with skype).
+<br/>
+Thus we faced a challenge how to overcome the strict firewall settings and open up a direct (and swift) remote desktop access. Finally we succeeded, and in this post I am going to share the method with you, having possibly similar problems.
+
+<h3>Info sources</h3>
+<a href="http://theillustratednetwork.mvps.org/Ssh/RemoteDesktopSSH.html">[Secure remote access of a private network]</a><br/>
+<a href="http://theillustratednetwork.mvps.org/RemoteDesktop/RemoteDesktopSetupandTroubleshooting.html#Port_forwarding">[Port forwarding for Remote Desktop]</a><br/>
+<a href="http://unixhelp.ed.ac.uk/CGI/man-cgi?ssh+1">[Unix man pages: ssh(1)]</a><br/>
+<a href="http://sig9.com/articles/concurrent-remote-desktop">[Concurrent Remote Desktop Sessions in Windows XP SP2]</a><br/>
+<a href="http://www.miscdebris.net/blog/2007/06/01/speed-up-ssh-x11-forwarding">[Speed up SSH X11 forwarding]</a><br/>
+<a href="http://staff.washington.edu/corey/fw/ssh-port-forwarding.html">[SSH port forwarding]</a>
+<h3>Configuration</h3>
+At home I have a PC workstation with Windows XP and laptop with Linux Ubuntu 8.04, both computers behind 
+the Linksys router WRT54GL with DD-WRT firmware version 2.4. 
+<br/>
+In the office I have a PC workstation with Windows XP behind a firewall. The firewall is administered 
+by the IT department (residing abroad) and developers have no way of configuring it. 
+<br/>
+The office firewall is configured that there are no incoming ports open and there are just a few outgoing:
+80 (http), 119 (nntp), 1863 (msnp) and maybe few others I do not know of.
+<br/>
+The goal is to find a way how to enable Remote desktop connection across the Internet in both directions.
+<br/>
+We decided to use SSH port forwarding feature. Since the port 22 standardly used for SSH access is not forwarded 
+on the firewall even for outgoing connections we had to use another port - 119 was our choice.
+<br/>
+In following text I use port <span style="color: #009900"><b>119</b></span>, actually it is specific to this 
+specific scenario, given there is another firewall configuration, port selection has to be done correspondingly.
+
+<h3>Homeward connection</h3>
+This direction is a simpler one, since there are at least some ports open on the firewall for outgoing connections.
+<br/>
+<b>We have the following:</b>
+<ul>
+<li>Home internet connection with public IP address</li>
+    <ul><li>as an alternative you can use a dynamic DNS service (like <a href="http://www.dyndns.com/">dynDNS</a> 
+    or similar) but also need a port forwarding for at least port <span style="color: #009900"><b>119</b></span> activated by your ISP</li></ul>
+<li>Home router with SSH access activated, but configured to listen on port <span style="color: #009900"><b>119</b></span>
+    <ul><li>In case you have no router you can have SSH service/daemon (configured for port 
+        <span style="color: #009900"><b>119</b></span>) running directly on your computer</li></ul>
+</li>
+<li>Home PC with OS Windows (XP Professional version, the Home version has a limited remote access) - Terminal services listening standardly on port 
+    <span style="color: #3300ff"><b>3389</b></span>
+</li>
+<li>Home Laptop with OS Linux (Ubuntu Hardy 8.04) - VNC server screen 1 listening on port <span
+    style="color: #cc00ff"><b>5901</b></span>
+</li>
+<li>Office PC with OS Windows XP (not sure if the Professional version is necessary for the Terminal Serveces client) with 
+<a href="http://www.realvnc.com/products/free/4.1/download.html">VNC viewer</a> installed.
+</li>
+</ul>
+
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    Launch SSH client configured with following command line:
+    <br/>
+    <b>ssh.exe -L <span style="color: #ff0000">3391</span>:workstation:<span style="color: #3300ff">3389</span> 
+    -L <span style="color: #ff9900">5951</span>:laptop:<span style="color: #cc00ff">5901</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Forwarding local port <span style="color: #ff0000"><b>3391</b></span> to port <span style="color: #3300ff"><b>3389</b></span> of remote host <i>"workstation"</i></li>
+    <li>Forwarding local port <span style="color: #ff9900"><b>5951</b></span> to port <span style="color: #cc00ff"><b>5901</b></span> of remote host <i>"laptop"</i></li>
+    </ul>
+  </li>
+  <li>
+  In order to connect to the Windows machine launch the Terminal services client: <br />
+  <b>mstsc.exe /v:localhost:<span style="color: #ff0000">3391</span></b>
+  </li>
+  <li>
+  In order to connect to the Linux machine launch the VNC viewer: <br />
+  <b>vncviewer.exe localhost:<span style="color: #ff9900">5951</span></b>
+  </li>
+</ol>
+And that's it. Following schema demonstrates the whole situation:
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SKYeOYTLpUI/AAAAAAAABpA/uXxXY1sCIZ8/s1600-h/RemoteDesktop2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SKYeOYTLpUI/AAAAAAAABpA/uXxXY1sCIZ8/s400/RemoteDesktop2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5234904849254688066" /></a>
+<br/>
+This was a simpler direction (according to the firewall configuration). The more complicated one follows...
+
+<span class="fullpost">
+
+<h3>Connection towards Office</h3>
+This direction is a more intricate one, simply because we are trying to go "against" the firewall, it is configured to disallow any 
+incoming connection. So if we cannot connect to the office computer (sitting behind the firewall) what about turning over the problem
+to the previous (already solved) one? We could possibly <i>be contacted</i> by our office computer instead of trying contact it ourself.
+<br />
+But we still need some way to initiate the whole connection process. After all must be at least some how to pass through the firewall.
+If there is such facility, we could use it as our trigger (Surely there is such a facility - a good old e-mail ;-).
+<br />
+<b>Now we have the following:</b>
+<ul>
+<li>Office PC with OS Windows XP (XP Professional version, the Home version has a limited remote access) - Terminal services listening 
+    standardly on port <span style="color: #3300ff"><b>3389</b></span> and Outlook client running with a custom e-mail rule starting the 
+    connection (we can define a rule for specific sender address, subject or body containing some "magic" string etc). 
+    <ul><li>Obviously any other e-mail client (with e-mail rules) can be used. Or it is possible to use another utility running as an OS service
+     - this way it would be possible to contact the computer even when no user was previously logged in.</li></ul>
+</li>
+<li>We still need an internet connection with public IP address or at least <span style="color: #009900"><b>119</b></span> 
+    incomming port forwarding (remember, even when we are connecting to the office - actually our ofice is contacting us ;)</li>
+<li>Home router with SSH access activated, but configured to listen on port <span style="color: #009900"><b>119</b></span>.
+    Also we need to have the Office Workstation's rsa key added to the list of router's <i>Authorized keys</i>.
+</li>
+<li>Home PC with OS Windows XP (not sure if the Professional version is necessary for the Terminal Serveces client). 
+    We can send the initiating e-mail by hand or prepare a script automating the whole connection process 
+    (I am using a python script since it can be used on Linux machine as well).
+</li>
+<li>Home Laptop with OS Linux (Ubuntu Hardy 8.04) - can be used as a Terminal services client as well.
+</li>
+</ul>
+
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    From either <i>workstation</i> or <i>laptop</i> we send an initiating e-mail (containing a "magic" pattern)
+  </li>
+  <li>
+    Outlook client running on the Office Workstation receives the e-mail, recognizes the pattern and initiates the 
+    actual connection with Home router with following command line:
+    <br/>
+    <b>ssh.exe -R <span style="color: #ff0000">3393</span>:localhost:<span style="color: #3300ff">3389</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Use the specified identity file (private key) for RSA authentication (this can be used for all ssh sessions but in this case it is necessary 
+    - we cannot use the interactive password authentication method in this case ;)</li>
+    <li>Forwarding port <span style="color: #ff0000"><b>3391</b></span> of the remote host (Home router) to local port <span style="color: #3300ff"><b>3389</b></span>.</li>
+    </ul>
+  </li>
+  <li>
+    On either <i>workstation</i> or <i>laptop</i> we connect to the router with following command line:
+    <br/>
+      <b>ssh.exe -L <span style="color: #cc00ff">3391</span>:localhost:<span style="color: #ff0000">3393</span> &lt;user&gt;@router</b>
+    <br/>
+    ... which means: 
+    <br/>
+    <ul>
+    <li>Connect to the router (via standard port 22) as a user &lt;user&gt;</li>
+    <li>Forwarding local port <span style="color: #cc00ff"><b>3391</b></span> to router's <span style="color: #ff0000"><b>3393</b></span> port</li>
+    </ul>
+  </li>
+  <li>Establish the remote desktop connection to the Office Workstation.
+    <ul>
+    <li>From Windows: <b>MSTSC.EXE /v:localhost:<span style="color: #cc00ff">3391</span></b></li>
+    <li>From Linux: <b>rdesktop localhost:<span style="color: #cc00ff">3391</span> -u &lt;user&gt; -d &lt;domain&gt; -p -</b></li>
+    </ul>
+  </li>
+</ol>
+
+Following schema demonstrates the whole sequence of events:
+<br/>
+
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SKYdU2Eil9I/AAAAAAAABow/j1RZygzxPfk/s1600-h/RemoteDesktop.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SKYdU2Eil9I/AAAAAAAABow/j1RZygzxPfk/s400/RemoteDesktop.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5234903860813928402" /></a>
+
+<i>Note:</i> not all steps are always necessary. The tunnel between <i>Office Workstation</i> and <i>Home router</i> can sometimes last for several days 
+(while sometimes is spontaneously interrupted - it probably depends on a quality of Internet connection) and so it is not necessary to send 
+the initiating e-mail anytime we want to connect to the office. So usually the first thing I do is to open the 
+SSH connection to the router (<i>step 3</i>), determine whether there is the existing office connection (e.g. via <i>ps</i> command I look at the number of 
+<i>dropbear</i> and <i>sh</i> instances) and if so proceed directly to the <i>step 4</i>.
+<br/>
+<br/>
+<h3>Update - significant simplification</h3>
+<br/>
+At the time I initially wrote this post I did not know why it was not possible to connect to the router's forwarded port from another host. That was why I created actually two tunnels (Office PC -&gt; Router&lt;- Home PC) when I was connecting remotely to the office.
+<br/>
+After some time I have found some <a href="http://staff.washington.edu/corey/fw/ssh-port-forwarding.html">more info</a> in this regard:
+Client side:
+<blockquote><i>
+As a security precaution, modern versions of ssh forbid other computers on the internet from connecting to the forwarded port (...) unless you explicitly allow it with the "ssh -g" flag
+</i></blockquote>
+Server side:
+<blockquote><i>
+If the client is not configured to accept inbound SSH connections, this can be done with remote port forwarding on an outbound connection. (For OpenSSH, note that you may need to set "GatewayPorts yes" in "sshd_config" to achieve on the server what "ssh -g" would do on the client (allow any host to connect to the forwarded port).
+</i></blockquote>
+Then I found some more info indicating that it does not work for DropBear even when properly configured (<a href="http://wl500g.info/showthread.php?t=4389">here</a> and <a href="http://www.infosecwriters.com/text_resources/pdf/ssh_tunneling.pdf">here</a>):
+<blockquote><i>
+The reason that the direct login to remote forwarded port doesn't work is - "dropbear binds remote port forwardings to
+the loopback address. This prevents other remote hosts from connecting to forwarded ports."
+To fix it, you can recompile dropbear for your router.
+</i></blockquote>
+I did not want to rebuild <i>dropbear</i> for my router (I do not even have a build toolchain for it) so I kept trying. Finally I realized that when I explicitly use the actual hostname for my router (<i>router</i> in my configuration) instead of <i>localhost</i> (as used by default) on the remote port forwarding command line, it does the trick:
+<br/>
+So - on the <i>Office PC</i> command line - instead of former:
+<pre class="code">
+ssh.exe -R 3393:localhost:3389 -i .ssh\id_rsa <user>@<home-ip> -p 119 
+</pre>
+Now I am using:
+<pre class="code">
+ssh.exe -R router:3389:localhost:3389 -i .ssh\id_rsa <user>@<home-ip> -p 119 
+</pre>
+... and after this change it is possible to connect to the tunnel not only from the router itself but from any other machine in the network.
+<br/>
+I did not consider possible security implications, after all I am just a simple user in this regard, so it is up to you to decide which approach better fits your needs, please, don't blame me then.
+<br/>
+<br/>
+<b>Steps to establish the remote desktop connection:</b>
+<ol>
+  <li>
+    From either <i>workstation</i> or <i>laptop</i> we send an initiating e-mail (containing a "magic" pattern)
+  </li>
+  <li>
+    Outlook client running on the Office Workstation receives the e-mail, recognizes the pattern and initiates the actual connection with Home router with following command line:
+    <br/>
+    <b>ssh.exe -R router:<span style="color: #ff0000">3389</span>:localhost:<span style="color: #3300ff">3389</span> 
+    -i .ssh\id_rsa &lt;user&gt;@&lt;home-ip&gt; -p <span style="color: #009900">119</span></b>
+    <br/>
+    ... which means:
+    <ul>
+    <li>Connect to the remote host with IP &lt;home-ip&gt; (our Home public IP or DNS name) via port <span style="color: #009900"><b>119</b></span> as a user &lt;user&gt;</li>
+    <li>Use the specified identity file (private key) for RSA authentication (this can be used for all ssh sessions but in this case it is necessary 
+    - we cannot use the interactive password authentication method in this case ;)</li>
+    <li>Forwarding port <span style="color: #ff0000"><b>3389</b></span> of the remote host with hostname <i>router"</i> (Home router) to local port <span style="color: #3300ff"><b>3389</b></span>.</li>
+    </ul>
+  </li>
+  <li>
+    On either <i>workstation</i> or <i>laptop</i> we establish the remote desktop connection to the Office Workstation as follows:
+    <ul>
+    <li>From Windows: <pre class="code">MSTSC.EXE /v:router</pre></li>
+    <li>From Linux: <pre class="code">rdesktop router -u &lt;user&gt; -d &lt;domain&gt; -p -</pre></li>
+    </ul>
+  </li>
+</ol>
+
+Following schema demonstrates the whole sequence of events:
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SczcdWo1YkI/AAAAAAAACz8/e8Ric3izvQk/s1600-h/RemoteDesktop3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 261px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SczcdWo1YkI/AAAAAAAACz8/e8Ric3izvQk/s400/RemoteDesktop3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317867656868880962" /></a>
+
+<h3>NX accelerated RDP</h3>
+@TBD
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/Scz3erOAHGI/AAAAAAAAC0M/XcMl7KFS_wI/s1600-h/NX-RDP.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 179px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/Scz3erOAHGI/AAAAAAAAC0M/XcMl7KFS_wI/s400/NX-RDP.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317897366387301474" /></a>
+<br/>
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Scz13GvVS6I/AAAAAAAAC0E/dt-cDrrHmOA/s1600-h/RemoteDesktop4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 262px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Scz13GvVS6I/AAAAAAAAC0E/dt-cDrrHmOA/s400/RemoteDesktop4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317895587068464034" /></a>
+
+</span><div class="blogger-post-footer"><img width='1' height='1' src='https://blogger.googleusercontent.com/tracker/183431720687819497-7092835517381876974?l=filodej.blogspot.com' alt='' /></div>
+
+  </div>
+
+  <div><a name="/2009/01/06/cooperative-linux-with-debian/">&nbsp;</a>
+    <blockquote><p>Note: this is just a slightly modified version of my <a href="http://filodej.blogspot.com/2008/06/cooperative-linux-with-debian.html">original BlogSpot post</a>.
+I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to <a href="http://en.wikipedia.org/wiki/Markdown">MarkDown</a>).</p></blockquote>
+
+<h1>Introduction</h1>
+
+<p>This post provides a step by step tutorial how to download, install and configure <a href="http://en.wikipedia.org/wiki/Colinux">CoLinux</a>
+with <a href="http://en.wikipedia.org/wiki/Debian">Debian 4.0</a> file system image.
+Also the installation of <a href="http://en.wikipedia.org/wiki/GNOME">GNOME</a> desktop environment
+and <a href="http://en.wikipedia.org/wiki/NX_technology">NX server</a> is covered.
+As a result we get a graphic Linux environment cooperatively running on the Windows hosting system.
+It can be seen as an alternative to a conventional "dual boot" configuration - but with both systems running at the same time.</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s1600-h/06-gnome-session-gimp.jpg"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 320px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s400/06-gnome-session-gimp.jpg" border="0" alt=""id="BLOGGER_PHOTO_ID_5288294856042187506" /></a></p>
+
+<h1>Info sources:</h1>
+
+<ul>
+<li><a href="http://www.colinux.org">CoLinux Homepage</a></li>
+<li><p><a href="http://colinux.wikia.com/wiki/Main_Page">CoLinux Wiki</a></p></li>
+<li><p><a href="http://sourceforge.net/project/shownotes.php?release_id=248895&amp;group_id=98788">Debian notes</a></p></li>
+<li><a href="http://sourceforge.net/project/showfiles.php?group_id=98788&amp;package_id=289363">Debian filesystem image</a></li>
+<li><a href="http://sourceforge.net/project/showfiles.php?group_id=98788">More available filesystem images</a></li>
+<li><a href="http://www.saltycrane.com/blog/2008/04/install-colinux-and-ubuntu-gutsy-on-win">Howto install coLinux (and Ubuntu Hardy) on Win XP</a></li>
+</ul>
+
+
+<h1>Download and installation</h1>
+
+<h2>CoLinux binary</h2>
+
+<p>You can download binary <a href="http://sourceforge.net/project/showfiles.php?group_id=98788&amp;package_id=107317">here</a>.</p>
+
+<p>In my case it was the <em>stable version 0.7.3 (kernel 2.6.22.18)</em> ... <a href="http://downloads.sourceforge.net/colinux/coLinux-0.7.3.exe?modtime=1212921944&amp;big_mirror=0">coLinux-0.7.3.exe</a></p>
+
+<p>(an alternative could be the <em>development version 8.0 (kernel 2.6.22.18)</em> ...
+<a href="http://www.colinux.org/snapshots/devel-coLinux-20081130.exe">devel-coLinux-20081130.exe</a>, see <a href="http://www.colinux.org/snapshots/">this page</a> for details).</p>
+
+<p>Selected components:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s1600-h/01-colinux-install1.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s400/01-colinux-install1.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289711502456034" /></a></p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s1600-h/01-colinux-install2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s400/01-colinux-install2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289725758292450" /></a></p>
+
+<p>During the installation the <a href="http://www.winpcap.org/">WinPcap</a> (The Windows Packet Capture Library) is installed. It can be downloaded <a href="http://www.winpcap.org/install/">here</a>.</p>
+
+<p>I choose stable <a href="http://www.winpcap.org/install/bin/WinPcap_4_0_2.exe">WinPcap 4.0.2</a> (an alternative could be <a href="http://www.winpcap.org/install/bin/WinPcap_4_1_beta4.exe">WinPcap 4.1 beta4</a>).</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s1600-h/01-colinux-install3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s400/01-colinux-install3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289727699889154" /></a></p>
+
+<p>We can download (some of) available filesystem images directly during the installation:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s1600-h/01-colinux-install4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s400/01-colinux-install4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289729083437570" /></a></p>
+
+<p>TAP network adapter is installed (dear Microsoft, sure we want to continue the installation ;-)</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s1600-h/01-colinux-install5.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 260px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s400/01-colinux-install5.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289742028410674" /></a></p>
+
+<p>Now the TAP adapter is installed (but not connected):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s1600-h/02-tap-adapter.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 334px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s400/02-tap-adapter.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290199907235234" /></a></p>
+
+<p>We have to configure the private IP address of the host system (windows):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s1600-h/02-tap-adapter2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 355px; height: 400px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s400/02-tap-adapter2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290205191977634" /></a></p>
+
+<h2>Installation paths:</h2>
+
+<ul>
+<li>CoLinux binary: <em>c:\programs\coLinux</em></li>
+<li>Filesystem images: <em>c:\programs\coLinux\images</em></li>
+</ul>
+
+
+<h1>Configure (Windows side)</h1>
+
+<h2>Config file</h2>
+
+<p>We create a new configuration file (just modify the installed <em>example.conf</em>):</p>
+
+<pre><code>C:\&gt; cd programs\coLinux
+C:\programs\coLinux&gt; copy example.conf debian.conf
+    1 file(s) copied.
+C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Now we can specify root image, swap file and possibly other mount points and also define two ethernet devices -
+one for pcap bridge and second for TAP adapter:</p>
+
+<pre><code>...
+
+# File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cofs1=c:\
+cofs2=d:\
+
+# Swap device, should be an empty file with 128..512MB.
+cobd1="C:\programs\coLinux\images\swap_file.1gb"
+
+# Tell kernel the name of root device (mostly /dev/cobd0,
+# /dev/cobd/0 on Gentoo)
+# This parameter will be forward to Linux kernel.
+root=/dev/cobd0
+
+# Additional kernel parameters (ro = rootfs mount read only)
+ro
+
+# Initrd installs modules into the root file system.
+# Need only on first boot.
+initrd=initrd.gz
+
+# Maximal memory for linux guest
+#mem=64
+
+# Slirp for internet connection (outgoing)
+# Inside running coLinux configure eth0 with this static settings:
+# ipaddress 10.0.2.15   broadcast  10.0.2.255   netmask 255.255.255.0
+# gateway   10.0.2.2    nameserver 10.0.2.3
+#eth0=slirp
+
+# pcap bridge for internet connection (outgoing)
+eth0=pcap-bridge,"Local Area Connection",&lt;an-artificial-mac-address&gt;
+
+# Tuntap as private network between guest and host on second linux device
+eth1=tuntap
+
+# Setup for serial device
+#ttys0=COM1,"BAUD=115200 PARITY=n DATA=8 STOP=1 dtr=on rts=on"
+
+# Run an application on colinux start (Sample Xming, a Xserver)
+# exec0=C:\Programs\Xming\Xming.exe,":0 -clipboard -multiwindow -ac"
+</code></pre>
+
+<h2>Swap file</h2>
+
+<p>Also you have to create a swap file, <a href="http://colinux.wikia.com/wiki/HowtoCreateSwapFile">here</a> is how to create it,
+or if you are lazy like me, you can download one from <a href="http://gniarf.nerim.net/colinux/swap/">this site</a>
+(user <a href="http://colinux.wikia.com/wiki/User:Gniarf">Gniarf</a> provides also other interesting info).</p>
+
+<h1>Configure (Linux side)</h1>
+
+<p>Start colinux daemon:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe @debian.conf
+Cooperative Linux Daemon, 0.7.3
+Daemon compiled on Sat May 24 22:36:07 2008
+
+PID: 3268
+error 0x2 in execution
+error launching console
+daemon: exit code 8200c401
+daemon: error - CO_RC_ERROR_ERROR, line 49, file src/colinux/os/winnt/user/exec.c (16)
+</code></pre>
+
+<p>We did not install the generic console so we have to explicitly say we want to launch the NT console:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+</code></pre>
+
+<p>Login as root (a default password is <code>"root"</code>):</p>
+
+<pre><code>login as: root
+root@10.0.2.2's password:
+Linux debian 2.6.22.18-co-0.7.3 #1 PREEMPT Sat May 24 22:27:30 UTC 2008 i686
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+</code></pre>
+
+<p>Change the root password</p>
+
+<pre><code>deb# passwd
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+</code></pre>
+
+<h2>Network</h2>
+
+<p>For easy to use the network is pre-configured for "slirp":</p>
+
+<pre><code>deb# ifconfig
+eth0      Link encap:Ethernet  HWaddr 22:01:76:23:42:12
+          inet addr:10.0.2.15  Bcast:10.0.2.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:59 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:20682 (20.1 KiB)  TX bytes:0 (0.0 b)
+          Interrupt:2
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</code></pre>
+
+<p>We change it to dual-ethernet mode (one for uoutide world connection and other for private network between guest and host system):</p>
+
+<pre><code>deb# nano /etc/network/interfaces
+</code></pre>
+
+<p>Comment out the following:</p>
+
+<pre><code># The primary network interface (slirp)
+auto eth0
+iface eth0 inet static
+   address 10.0.2.15
+   broadcast 10.0.2.255
+   netmask 255.255.255.0
+   gateway 10.0.2.2
+</code></pre>
+
+<p>And replace it with following:</p>
+
+<pre><code># The primary network interface
+auto eth0
+iface eth0 inet dhcp
+</code></pre>
+
+<p>Then there is the following:</p>
+
+<pre><code># Second network (tap-win32)
+#auto eth1
+#iface eth1 inet static
+#   address 192.168.0.40
+#   netmask 255.255.255.0
+</code></pre>
+
+<p>... leave it as is (or remove it) and add the following:</p>
+
+<pre><code>auto eth1
+iface eth1 inet static
+   address 10.0.2.2
+   network 10.0.2.0
+   netmask 255.255.255.0
+   broadcast 10.0.2.255
+</code></pre>
+
+<p>Now save the file and reboot:</p>
+
+<pre><code>deb# &lt;b&gt;reboot&lt;/b&gt;
+...
+</code></pre>
+
+<p>We should see now on the Windows side that the TAP adapter is connected:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7TI2pAI/AAAAAAAACb8/itF6IfKkoHY/s1600-h/02-tap-adapter3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 334px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7TI2pAI/AAAAAAAACb8/itF6IfKkoHY/s400/02-tap-adapter3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290209026712578" /></a></p>
+
+<p>After we login to linux, we can examine the new network configuration:</p>
+
+<pre><code>deb# ifconfig
+eth0      Link encap:Ethernet  HWaddr &lt;i&gt;&amp;lt;an-artificial-mac-address&amp;gt;&lt;/i&gt;
+          inet addr:192.168.1.196  Bcast:192.168.1.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:17220 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:11031 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:24760203 (23.6 MiB)  TX bytes:770417 (752.3 KiB)
+          Interrupt:2
+
+eth1      Link encap:Ethernet  HWaddr 00:FF:68:B7:70:00
+          inet addr:10.0.2.2  Bcast:10.0.2.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:17 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:2238 (2.1 KiB)  TX bytes:0 (0.0 b)
+          Interrupt:2
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</code></pre>
+
+<h2>Packaging system</h2>
+
+<p>Now (we are connected to the internet) it is time to update the package system and upgrade installed packages:</p>
+
+<pre><code>deb# apt-get update
+...
+deb# apt-get upgrade
+The following packages will be upgraded:
+  bsdutils cpio debconf debconf-i18n debian-archive-keyring dpkg e2fslibs
+  e2fsprogs findutils initscripts libblkid1 libc6 libcomerr2 libgnutls13
+  libpam-modules libpam-runtime libpam0g libss2 libuuid1 lsb-base mount nano
+  perl-base sysv-rc sysvinit sysvinit-utils tar tzdata util-linux
+29 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+Need to get 12.3MB of archives.
+After unpacking 1786kB disk space will be freed.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<h2>Mount table</h2>
+
+<p>Now we can modify the mount table:</p>
+
+<pre><code>deb# nano /etc/fstab
+</code></pre>
+
+<p>... add the following if you want to mount C: and D: windows drives (we made it available as cofs devices in <code>debian.conf</code> file):</p>
+
+<pre><code>cofs1            /mnt/c         cofs    defaults,noatime  0      0
+cofs2            /mnt/d         cofs    defaults,noatime  0      0
+</code></pre>
+
+<p>Of course you can add anything you want, for example I wanted to make a cifs mount to a NAS directory:</p>
+
+<pre><code>//storage/filodej   /mnt/storage/filodej   cifs defaults,credentials=/etc/storage.smbpass 0 0
+</code></pre>
+
+<p>The <code>storage-filodej.smbpass</code> is a file readable just by root and containing a username and his password:</p>
+
+<pre><code>deb# cd /etc
+deb# echo "username=filodej" &amp;gt; storage.smbpass
+deb# chmod 600 storage.smbpass
+deb# echo "password=&lt;i&gt;&amp;lt;filodej-password&amp;gt;&lt;/i&gt;" &amp;gt;&amp;gt; storage.smbpass
+deb# cat storage.smbpass
+username=filodej
+password=&lt;filodej-password&gt;
+</code></pre>
+
+<p>Now we have to create corresponding mount point directories:</p>
+
+<pre><code>deb# cd /mnt
+deb# mkdir c
+deb# mkdir d
+deb# mkdir --parents storage/filodej
+</code></pre>
+
+<p>Test the mount table:</p>
+
+<pre><code>deb# mount -a&lt;
+mount: wrong fs type, bad option, bad superblock on //storage/filodej,
+       missing codepage or other error
+       In some cases useful info is found in syslog - try
+       dmesg | tail  or so
+</code></pre>
+
+<p>It seems I forgot to to install the <code>samba</code> file system:</p>
+
+<pre><code>deb# apt-get install smbfs
+
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  libkrb53 libpopt0 samba-common
+Suggested packages:
+  krb5-doc krb5-user smbclient
+The following NEW packages will be installed:
+  libkrb53 libpopt0 samba-common smbfs
+0 upgraded, 4 newly installed, 0 to remove and 0 not upgraded.
+Need to get 3232kB of archives.
+After unpacking 7827kB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>During the installation we have to specify the <em>Domain</em>/<em>Workgroup</em> name and decide whether
+to use WINS settings from DHCP (and install <code>dhcp3-client</code> package).</p>
+
+<p>Now the command:</p>
+
+<pre><code>deb# mount -a
+</code></pre>
+
+<p>... works as expected.</p>
+
+<h2>Install CoLinux as a Windows Service</h2>
+
+<p>We need to be able to access the running linux system somehow.
+I am using mostly the SSH for that purpose.</p>
+
+<p>First we have to install ssh daemon it on the linux system:</p>
+
+<pre><code>deb# apt-get install ssh
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  libedit2 libssl0.9.8 openssh-blacklist openssh-client openssh-server
+Suggested packages:
+  ssh-askpass xbase-clients rssh molly-guard
+The following NEW packages will be installed:
+  libedit2 libssl0.9.8 openssh-blacklist openssh-client openssh-server ssh
+0 upgraded, 6 newly installed, 0 to remove and 0 not upgraded.
+Need to get 5779kB of archives.
+After unpacking 12.7MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+Setting up ssh (4.3p2-9etch3) ...
+
+deb# eth0: duplicate address detected!
+</code></pre>
+
+<p>The 1duplicate address detected!` issue is described <a href="http://colinux.wikia.com/wiki/Network#DHCP_problems_.2F_duplicate_address">here</a>.</p>
+
+<p>I have associated the <code>&lt;an-artificial-mac-address&gt;</code> with static-DHCP assigned IP but the warning stil does persist.
+If anyone knows the solution, please, let me know!</p>
+
+<p>Anyway the ssh daemon is now up and running and we are able to connect to the linux system via ssh
+(on the host machine we can use either eth0 public IP or better the eth1 private IP).</p>
+
+<p>Now we are ready to create a windows service and run the colinux as a service.
+The detailed guide for the service creation can be seen <a href="http://colinux.wikia.com/wiki/Running_as_a_Service">here</a>.</p>
+
+<p>The following command does the job:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon @debian.conf --install-service "coLinux-Debian"
+Cooperative Linux Daemon, 0.7.3
+Daemon compiled on Sat May 24 22:36:07 2008
+
+daemon: installing service 'coLinux-Debian'
+daemon: service command line: "c:\programs\coLinux\colinux-daemon.exe" @debian.conf --run-service "coLinux-Debian"
+daemon: setting restart options
+daemon: service installed.
+</code></pre>
+
+<p>Now we can start colinux daemon as a service:</p>
+
+<pre><code>C:\programs\coLinux&gt; net start "coLinux-Debian"
+
+The coLinux-Debian service was started successfully.
+</code></pre>
+
+<h2>Linux administration</h2>
+
+<p><strong>Create a new user</strong>
+<a href="http://www.linuxheadquarters.com/howto/basic/adduser.shtml">[Add user howto]</a></p>
+
+<pre><code>deb# adduser --home /home/filodej --ingroup users filodej
+Adding user `filodej' ...
+Adding new user `filodej' (1001) with group `users' ...
+Creating home directory `/home/filodej' ...
+Copying files from `/etc/skel' ...
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+Changing the user information for filodej
+Enter the new value, or press ENTER for the default
+        Full Name []: Filodej
+        Room Number []:
+        Work Phone []:
+        Home Phone []:
+        Other []:
+Is the information correct? [y/N] y
+</code></pre>
+
+<p><strong>Install sudo</strong>
+<a href="http://linux.about.com/od/commands/l/blcmdl8_sudo.htm">[linux sudo command]</a></p>
+
+<pre><code>deb# apt-get install sudo
+Reading package lists... Done
+Building dependency tree... Done
+The following NEW packages will be installed:
+  sudo
+0 upgraded, 1 newly installed, 0 to remove and 36 not upgraded.
+Need to get 162kB of archives.
+After unpacking 406kB of additional disk space will be used.
+Get:1 http://ftp.debian.org etch/main sudo 1.6.8p12-4 [162kB]
+Fetched 162kB in 1s (95.8kB/s)
+Selecting previously deselected package sudo.
+(Reading database ... 25225 files and directories currently installed.)
+Unpacking sudo (from .../sudo_1.6.8p12-4_i386.deb) ...
+Setting up sudo (1.6.8p12-4) ...
+No /etc/sudoers found... creating one for you.
+</code></pre>
+
+<p>Let's look at the sudoers definition file:</p>
+
+<pre><code>deb# cat /etc/sudoers
+# /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+Defaults        env_reset
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root    ALL=(ALL) ALL
+</code></pre>
+
+<p>Now we can make the new user sudoer:</p>
+
+<pre><code>deb# visudo
+...
+</code></pre>
+
+<p>Let's look at the result:</p>
+
+<pre><code>deb# cat /etc/sudoers
+# /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+Defaults        env_reset
+
+# Host alias specification
+
+# User alias specification
+filodej    ALL=(ALL) ALL
+
+# Cmnd alias specification
+
+# User privilege specification
+root    ALL=(ALL) ALL
+</code></pre>
+
+<h2>Resize the root filesystem</h2>
+
+<p><a href="http://colinux.wikia.com/wiki/ExpandingRoot">[Expanding root filesystem howto]</a></p>
+
+<p>I decided to do it the <a href="http://colinux.wikia.com/wiki/ExpandingRoot#The_most_reliable_way_to_enlarge_the_root_partition">most reliable way</a>.</p>
+
+<p>First we look at the current filesystem:</p>
+
+<pre><code>deb# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             1031064    197876    780812  21% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44298800 111981488  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>Now we halt the system (if we are logged as a normal user, we have to use <code>sudo</code>):</p>
+
+<pre><code>deb# sudo halt
+...
+Broadcast message from root@debian (pts/2) (Wed Dec 10 05:11:48 2008):
+
+The system is going down for system halt NOW!
+</code></pre>
+
+<p>On windows we now go to the <code>images</code> directory:</p>
+
+<pre><code>C:\&gt; cd programs\coLinux\images
+
+C:\programs\coLinux\images&gt; dir
+ Volume in drive C has no label.
+ Volume Serial Number is F488-7A65
+
+ Directory of C:\programs\coLinux\images
+
+01/06/2009  21:49    &lt;DIR&gt;          .
+01/06/2009  21:49    &lt;DIR&gt;          ..
+01/06/2009  20:29     1,072,693,248 Debian-4.0r0-etch.ext3.1gb
+03/27/2008  19:59        40,795,971 Debian-clean.1gb.bz2
+12/22/2008  22:32     1,073,741,824 swap_file.1gb
+               3 File(s)  2,187,231,043 bytes
+               2 Dir(s)  124,332,199,936 bytes free
+</code></pre>
+
+<p>Now make a backup copy of the old filesystem:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; copy Debian-4.0r0-etch.ext3.1gb Debian-4.0r0-etch.ext3.1gb.tmp
+        1 file(s) copied.
+</code></pre>
+
+<p>Create a new (empty) file (e.g. 8GB in this case):</p>
+
+<pre><code>C:\programs\coLinux\images&gt; fsutil file createnew Debian-4.0r0-etch.ext3.8gb 8589934592
+File C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb is created
+</code></pre>
+
+<p>Let's list the images directory again:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; dir
+ Volume in drive C has no label.
+ Volume Serial Number is F488-7A65
+
+ Directory of C:\programs\coLinux\images
+
+01/06/2009  22:02    &lt;DIR&gt;          .
+01/06/2009  22:02    &lt;DIR&gt;          ..
+01/06/2009  13:07     1,072,693,248 Debian-4.0r0-etch.ext3.1gb
+01/06/2009  20:29     1,072,693,248 Debian-4.0r0-etch.ext3.1gb.tmp
+01/06/2009  22:02     8,589,934,592 Debian-4.0r0-etch.ext3.8gb
+03/27/2008  20:59        40,795,971 Debian-clean.1gb.bz2
+01/06/2009  22:02                 0 fsutil
+12/22/2008  22:32     1,073,741,824 swap_file.1gb
+               6 File(s) 11,849,858,883 bytes
+               2 Dir(s)  114,669,043,712 bytes free
+</code></pre>
+
+<p>Now we can modify the <code>debian.conf</code> configuration file as follows:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; cd ..
+
+C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Add the two newly created file images as block devices:</p>
+
+<pre><code># File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cobd3="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb.tmp"
+cobd4="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb"
+cofs1=c:\
+cofs2=d:\
+</code></pre>
+
+<p>Now we can boot the colinux up and login as root:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+debian login: root
+Password:
+...
+deb#
+</code></pre>
+
+<p>Now we check if the the copy of the old filesystem is clean:</p>
+
+<pre><code>deb# e2fsck /dev/cobd3
+e2fsck 1.40-WIP (14-Nov-2006)
+/dev/cobd3: clean, 8967/131072 files, 53582/261888 blocks
+</code></pre>
+
+<p>If we now try to check the empty image, we (presumably) get the error:</p>
+
+<pre><code>deb# e2fsck /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Couldn't find ext2 superblock, trying backup blocks...
+e2fsck: Bad magic number in super-block while trying to open /dev/cobd4
+
+The superblock could not be read or does not describe a correct ext2
+filesystem.  If the device is valid and it really contains an ext2
+filesystem (and not swap or ufs or something else), then the superblock
+is corrupt, and you might try running e2fsck with an alternate superblock:
+e2fsck -b 8193 &lt;device&gt;
+</code></pre>
+
+<p>Let's copy the raw data from the old image to the new:</p>
+
+<pre><code>deb# dd if=/dev/cobd3 of=/dev/cobd4
+2095104+0 records in
+2095104+0 records out
+1072693248 bytes (1.1 GB) copied, 110.632 seconds, 9.7 MB/s
+</code></pre>
+
+<p>Now we can check the filesystem (<code>-f</code> will force checking even if filesystem is marked clean):</p>
+
+<pre><code>deb# e2fsck -f /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/cobd4: 8967/131072 files (0.6% non-contiguous), 53582/261888 blocks
+</code></pre>
+
+<p>Let's resize the filesystem from 1GB to 8GB:</p>
+
+<pre><code>deb# resize2fs -p /dev/cobd4
+resize2fs 1.40-WIP (14-Nov-2006)
+Resizing the filesystem on /dev/cobd4 to 2097152 (4k) blocks.
+Begin pass 1 (max = 56)
+Extending the inode table     XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+The filesystem on /dev/cobd4 is now 2097152 blocks long.
+</code></pre>
+
+<p>... and check it again:</p>
+
+<pre><code>deb# e2fsck -f /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/cobd4: 8967/1048576 files (0.6% non-contiguous), 82374/2097152 blocks
+</code></pre>
+
+<p>Now we are almost done and can halt the system:</p>
+
+<pre><code>deb# halt
+</code></pre>
+
+<p>In windows we can modify the <code>debian.conf</code> configuration file again:</p>
+
+<pre><code>C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Remove the two newly block devices and change the root file system to the <code>Debian-4.0r0-etch.ext3.8gb</code>:</p>
+
+<pre><code># File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+#cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb"
+cofs1=c:\
+cofs2=d:\
+</code></pre>
+
+<p>Now we can boot the colinux up and login:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+debian login: root
+Password:
+...
+deb#
+</code></pre>
+
+<p>Now we can inspect the free space we have:</p>
+
+<pre><code>deb# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             8256952    197876   7723532   3% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44281916 111998372  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>We are done for now, if everything goes fine we can possibly delete both the original image and its temporary copy.</p>
+
+<h1>GNOME installation</h1>
+
+<ul>
+<li><a href="http://ubuntuforums.org/showthread.php?t=648896">[HOWTO: Minimal Debian Install (GNOME/KDE)]</a></li>
+<li><a href="http://forums.debian.net/viewtopic.php?t=8614">[Installing x server]</a></li>
+</ul>
+
+
+<p>You have to decide what <a href="http://en.wikipedia.org/wiki/X_display_manager">display manager</a>
+and <a href="http://en.wikipedia.org/wiki/Desktop_environment">Desktop environment</a> to install.</p>
+
+<p>Following table shows the numbers of packages and download and intallation sizes for <em>core</em> and <em>full</em> variations of mainstream environments</p>
+
+<p><a href="http://en.wikipedia.org/wiki/GNOME_Display_Manager">GDM</a>/<a href="http://en.wikipedia.org/wiki/GNOME">GNOME</a> and
+<a href="http://en.wikipedia.org/wiki/KDE_Display_Manager">KDM</a>/<a href="http://en.wikipedia.org/wiki/KDE">KDE</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th align="left"> Variant           </th>
+<th align="right"> # packages </th>
+<th align="right"> Archive size </th>
+<th align="right"> Additional disk space </th>
+<th> </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td align="left"> xorg              </td>
+<td align="right"> 109        </td>
+<td align="right">   55 MB      </td>
+<td align="right"> 143 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + gnome-core </td>
+<td align="right"> 274        </td>
+<td align="right">  142 MB      </td>
+<td align="right"> 461 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + gnome      </td>
+<td align="right"> 472        </td>
+<td align="right">  300 MB      </td>
+<td align="right"> 931 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + kde-core   </td>
+<td align="right"> 208        </td>
+<td align="right">  120 MB      </td>
+<td align="right"> 318 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + kde        </td>
+<td align="right"> 543        </td>
+<td align="right">  312 MB      </td>
+<td align="right"> 830 MB                </td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+
+
+<p>I decided to try <em>full</em> GNOME installation:</p>
+
+<pre><code>deb# apt-get install xorg gnome
+...
+0 upgraded, 472 newly installed, 0 to remove and 0 not upgraded.
+Need to get 300MB of archives.
+After unpacking 931MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>... during the relatively lenthy process of the installation (on my machine it was 30 minutes for downloading
+and 15 minutes of installation) the <code>xserver-xorg</code> is configured and we are asked for desired screen resolutions.
+We are going to uninstall this package anyway so I do not think the settings we choose have any significant effect.</p>
+
+<p>After the installation is finished we can inspect the free space:</p>
+
+<pre><code>debian:~# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             8256952   1430612   6490796  19% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44284428 111995860  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>... and see that (as expected) the amount of used space on the root filesystem actually risen by approximately 1.2 GB.</p>
+
+<h1>NX server</h1>
+
+<ul>
+<li><a href="http://en.wikipedia.org/wiki/NX_technology">[NX technology]</a></li>
+<li><a href="http://freenx.berlios.de/">[FreeNX]</a></li>
+<li><a href="http://www.gnome.org/~markmc/a-look-at-nomachine-nx.html">[A look at NoMachine NX]</a></li>
+<li><a href="http://www.nomachine.com/select-package.php?os=linux&amp;id=1">[NoMachine NX server free edition]</a></li>
+<li><a href="http://richbradshaw.wordpress.com/2007/11/28/installing-nomachine-nx-on-linux/">[Installing NoMachine NX server]</a></li>
+<li><a href="http://www.nomachine.com/ar/view.php?ar_id=AR03C00172">[NX keyboard shortcuts]</a></li>
+</ul>
+
+
+<p>The following is written about the licensing model of NX technology <a href="http://en.wikipedia.org/wiki/NX_technology#License">on wikipedia</a>:</p>
+
+<blockquote><p>NoMachine uses the GNU General Public License for the core NX technology, while at the same time offering
+non-free commercial NX server[2] and client products for Linux, Microsoft Windows, Solaris, Mac OS X and
+embedded systems.</p>
+
+<p>Due to the free software nature of NX, the FreeNX project was started in order to provide the wrapper scripts
+for the GPL NX libraries. FreeNX is developed and maintained by Fabian Franz.</p></blockquote>
+
+<h2>FreeNX server</h2>
+
+<p>At first I tried to install the FreeNX on my Laptop with Ubuntu installation but did not succeed.
+I used <a href="http://www.drtek.ca/freenx-server-ubuntu-hardy">this</a> and <a href="http://www.debianhelp.co.uk/freenx.htm">this</a> tutorial,
+everything went fine, the only thing that did not work was the shadow session from windows client.</p>
+
+<p>Every time I was connecting in shadow mode from windows client, <code>nxagent</code> on server side crashed:</p>
+
+<pre><code>Dec 19 17:08:23 notas kernel: [53641.720283] nxagent[5639]: segfault at 0000002c eip 080e9137 esp bff23b50 error 6
+</code></pre>
+
+<p>I tried to uninstall compiz (as <a href="https://bugzilla.redhat.com/show_bug.cgi?id=461284">someone</a> advised) but it did not help.
+Maybe it was due to the client/server version incompatibility (I have used newer version of NoMachine windows client).
+As a result I decided to try the NoMachine NX server (free edition).
+It is limited for only two users or two simultaneous connections to the server, but this limitation was not so significant for me.</p>
+
+<h2>NoMachine NX server</h2>
+
+<p>If you are using "full" GNOME installation then the first thing I would recommend to do is to install
+the <a href="http://home.swbell.net/berzerke/printing.html">CUPS print server</a>.
+The reasons are described <a href="#gnome-not-responding">here</a> (the issue was not necessarily connected with NX server,
+but also NX server complained when the CUPS was not installed):</p>
+
+<pre><code>deb# &lt;b&gt;apt-get install cupsys&lt;/b&gt;
+...
+</code></pre>
+
+<p>Now we can proceed to the actual installation.</p>
+
+<p>The NX Free Edition for Linux can be downloaded from <a href="http://www.nomachine.com/download-package.php?Prod_Id=359">this page</a>.
+The release I am using is <code>3.3.0-8</code>.</p>
+
+<p>For the installation of NX server I have followed <a href="http://www.linux-tip.net/cms/content/view/298/26/">this tutorial</a>.</p>
+
+<p>We will need three packages: <a href="http://64.34.161.181/download/3.3.0/Linux/nxclient_3.3.0-3_i386.deb">nxclient</a>, <a href="http://64.34.161.181/download/3.3.0/Linux/nxnode_3.3.0-3_i386.deb">nxnode</a> and <a href="wget%20http://64.34.161.181/download/3.3.0/Linux/FE/nxserver_3.3.0-8_i386.deb">nxserver</a>.</p>
+
+<pre><code>deb# cd /tmp
+deb# wget http://64.34.161.181/download/3.3.0/Linux/nxclient_3.3.0-3_i386.deb
+...
+Length: 3,859,966 (3.7M) [application/x-debian-package]
+...
+deb# wget http://64.34.161.181/download/3.3.0/Linux/nxnode_3.3.0-3_i386.deb
+...
+Length: 6,251,244 (6.0M) [application/x-debian-package]
+...
+deb# wget http://64.34.161.181/download/3.3.0/Linux/FE/nxserver_3.3.0-8_i386.deb
+...
+Length: 6,717,880 (6.4M) [application/x-debian-package]
+...
+</code></pre>
+
+<p>First we have to install the client (even if we are was not going to use it):</p>
+
+<pre><code>deb# dpkg -i nxclient_3.3.0-3_i386.deb
+Selecting previously deselected package nxclient.
+(Reading database ... 53454 files and directories currently installed.)
+Unpacking nxclient (from nxclient_3.3.0-3_i386.deb) ...
+Setting up nxclient (3.3.0-3) ...
+Showing file: /usr/NX/share/documents/client/cups-info
+
+ CUPS Printing Backend
+
+ The NX Client set-up procedure detected that your "IPP CUPS" printing
+ backend doesn't allow printing from the NX session. In order to have
+ printing support in your NX system, you need to set proper permissions
+ on the IPP backend. Please execute:
+
+   chmod 755 /usr/lib/cups/backend/ipp&lt;/i&gt;
+</code></pre>
+
+<p>Ok, let's do what we are told:</p>
+
+<pre><code>deb# chmod 755 /usr/lib/cups/backend/ipp
+</code></pre>
+
+<p>Then the nxnode has to be installed:</p>
+
+<pre><code>deb# dpkg -i nxnode_3.3.0-3_i386.deb
+Selecting previously deselected package nxnode.
+(Reading database ... 55884 files and directories currently installed.)
+Unpacking nxnode (from nxnode_3.3.0-3_i386.deb) ...
+Setting up nxnode (3.3.0-3) ...
+NX&gt; 700 Starting: install node operation at: Tue Jan 06 12:08:11 2009.
+NX&gt; 700 Autodetected system 'debian'.
+NX&gt; 700 Install log is '/usr/NX/var/log/install'.
+NX&gt; 700 Checking NX node configuration using /usr/NX/etc/node.cfg file.
+NX&gt; 700 Inspecting local CUPS environment.
+NX&gt; 700 Generating CUPS entries in: /usr/NX/etc/node.cfg.
+NX&gt; 700 Installation of version: 3.3.0-3 completed.
+NX&gt; 700 Showing file: /usr/NX/share/documents/node/cups-info
+
+ CUPS Printing Backend
+
+ The NX Node setup procedure could not detect your "CUPS"
+ installation: either CUPS  is not installed on your system
+ or it was installed in a non-standard path. CUPS is needed
+ in order to enable printing support in your NX system.
+ Please note that you can enable  printing support for your
+ NX system at any time; to do this make sure  that you have
+ CUPS installed then run:
+
+   /usr/NX/scripts/setup/nxnode --nxprintsetup &lt;pathname&gt;
+
+ to specify the location of the CUPS root path.
+</code></pre>
+
+<p>... the CUPS related warning is hopefully not there if you have the CUPS server installed.
+If the warning is still there, the solution is simple:</p>
+
+<pre><code>deb# /usr/NX/scripts/setup/nxnode --nxprintsetup
+NX&gt; 701 Starting: nxprintsetup operation at: Mon Jan 05 13:14:31 2009.
+NX&gt; 701 Inspecting local CUPS environment.
+NX&gt; 701 Generating CUPS entries in: /usr/NX/etc/node.cfg.
+NX&gt; 701 CUPS configuration updated.
+</code></pre>
+
+<p>The last step is to install the nxserver itself:</p>
+
+<pre><code>deb# dpkg -i nxserver_3.3.0-8_i386.deb
+Selecting previously deselected package nxserver.
+(Reading database ... 56081 files and directories currently installed.)
+Unpacking nxserver (from nxserver_3.3.0-8_i386.deb) ...
+Setting up nxserver (3.3.0-8) ...
+NX&gt; 700 Installing: server at: Tue Jan 06 12:09:23 2009.
+NX&gt; 700 Autodetected system: debian.
+NX&gt; 700 Install log is: /usr/NX/var/log/install.
+NX&gt; 700 Creating configuration file: /usr/NX/etc/server.cfg.
+NX&gt; 723 Cannot start NX statistics:
+NX&gt; 709 NX statistics are disabled for this server.
+NX&gt; 700 Version '3.3.0-8' installation completed.
+NX&gt; 700 Showing file: /usr/NX/share/documents/server/install-notices
+
+Server keys
+
+The initial login between client and server happens through a DSA key
+pair, i.e. a couple of specially generated cryptographic keys, called
+the private key and the public key, which allow you to establish a
+secure connection, by means of SSL encryption, between NX client and
+NX server.
+
+The public part of the key-pair is provided during the installation
+of the server, while the private part of the key-pair is distributed
+together with the NX Client. This ensures that each NX client is able
+to authenticate to the server and to start the procedure for autho-
+rizing the user and negotiating the session.
+
+If you want to create a virtual private network (VPN) instead, you
+need to generate a new DSA key-pair and distribute the private part
+of the key-pair to those NX clients you want authenticated to the NX
+server. More information on how to generate and distribute a new DSA
+key-pair is available at:
+
+http://www.nomachine.com/ar/view.php?ar_id=AR01C00126
+
+Creating Users
+
+NX is configured to allow access from any system user, as long as
+valid credentials are given to the user for the SSH login. NX pro-
+vides an alternative authorization method, allowing system admin-
+istrators to determine which users are given access to the NX fun-
+ctionalities. This works by implementing a separation between the
+system password and the NX password, so that, for example, it is
+possible to forbid remote access to the system by any other means
+except via NX and use the NX tools to implement effective accounting
+of the system resources used by the user, or to share NX passwords in
+an external database.
+
+To activate the NX user and password DBs, you will have to edit the
+NX server configuration file by hand or use the NX Server Manager
+Web tool available for download on the NoMachine Web site at:
+
+http://www.nomachine.com/download-manager.php
+
+Session Shadowing and Desktop Sharing
+
+The session shadowing functionality allows you to share NX sessions
+running on the node. The desktop sharing functionality instead, gives
+access to the native display of the X server as if you were in front
+of the monitor. By default you can access sessions in interactive mode
+and upon authorization of the session owner. You can modify this beha-
+viour by tuning the server configuration according to your needs, for
+example by allowing access to sessions in view-only mode, or connecting
+to either a suspended session or the local display via the Desktop
+Manager login window.
+
+Load Balancing
+
+NX Advanced Server provides support for multi-node capabilities and
+load balancing. In its current implementation, NX server can only
+manage accounts on the host machine, so to grant access to the node
+running remotely, you will need to create the user account directly
+on the remote node host by issuing the NX node commands as root user.
+You will also need to add the NX Server public DSA Key to the node to
+allow this server to connect to the node running on the remote host.
+
+Documentation
+
+For further information on how to manage the configuration of your
+NX system, please refer to the System Administrator's Guide available
+on the NoMachine Web site at:
+
+http://www.nomachine.com/documentation/admin-guide.php
+
+The NoMachine Team.
+
+NX&gt; 700 Bye.
+</code></pre>
+
+<h2>NX Client for Windows</h2>
+
+<p>NX Client for Windows can be downloaded from <a href="http://www.nomachine.com/download-client-windows.php">this page</a>.
+Its installation is straightforward.</p>
+
+<p><strong>NX Connection wizard</strong></p>
+
+<p>With help of the NX connection wizard we can create a new session (if we are on local machine we can use the private TAP ethernet address):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7_wTSRI/AAAAAAAACcE/ru6FVGNROGs/s1600-h/05-nx-conn-wizard1.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 307px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7_wTSRI/AAAAAAAACcE/ru6FVGNROGs/s400/05-nx-conn-wizard1.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290221003327762" /></a></p>
+
+<p>Here we choose a desktop environment (Gnome in this case) and a resolution:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH8fhwRgI/AAAAAAAACcM/iFONDpZOT7s/s1600-h/05-nx-conn-wizard2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 307px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH8fhwRgI/AAAAAAAACcM/iFONDpZOT7s/s400/05-nx-conn-wizard2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290229532247554" /></a></p>
+
+<p>In advanced configuration we can modify everything we setup so far and much more:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIOeN_7iI/AAAAAAAACcU/X9MBiGOYO44/s1600-h/05-nx-conn-wizard3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 314px; height: 400px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIOeN_7iI/AAAAAAAACcU/X9MBiGOYO44/s400/05-nx-conn-wizard3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290538418597410" /></a></p>
+
+<p>If we are on local machine I would recommend to disable image compression (icons and images then look better):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIORlmvMI/AAAAAAAACcc/N5kqDUU9Zyc/s1600-h/05-nx-conn-wizard4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 299px; height: 400px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIORlmvMI/AAAAAAAACcc/N5kqDUU9Zyc/s400/05-nx-conn-wizard4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290535027948738" /></a>
+We save the session settiongs and proceed to login dialog:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPFundoI/AAAAAAAACck/OSMDk_BlnHs/s1600-h/05-nx-conn-wizard5.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 330px; height: 217px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPFundoI/AAAAAAAACck/OSMDk_BlnHs/s400/05-nx-conn-wizard5.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290549024388738" /></a></p>
+
+<p>The first time we are asked to story the RSA fingerprint (there is SSH running under the covers):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPeAX3iI/AAAAAAAACcs/tTseN1_5kqU/s1600-h/05-nx-conn-wizard6.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 338px; height: 192px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPeAX3iI/AAAAAAAACcs/tTseN1_5kqU/s400/05-nx-conn-wizard6.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290555541315106" /></a></p>
+
+<p>Now we are succesfully connected to a new Gnome session:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPvkrWTI/AAAAAAAACc0/sca666CNV_4/s1600-h/06-gnome-session.jpg"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 320px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPvkrWTI/AAAAAAAACc0/sca666CNV_4/s400/06-gnome-session.jpg" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290560256989490" /></a></p>
+
+<h2>Issues</h2>
+
+<p><em>*X server start failure at boot time</em></p>
+
+<p>When we reboot from the console we realize that X server is (unsuccesfully) started during the boot process:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWQDuhh6OPI/AAAAAAAACdE/UgerA40AF2Q/s1600-h/03-no-x-server.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 207px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWQDuhh6OPI/AAAAAAAACdE/UgerA40AF2Q/s400/03-no-x-server.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288355960249268466" /></a></p>
+
+<p>Actually we do not need xserver running on the coLinux side, we are going to connect via the NX server
+or use an X server running on the Windows side. As a solution we can uninstall the unnecessary <code>gdm</code> and <code>xserver-xorg</code>.</p>
+
+<p>I admit that this install/uninstall approach seems weird, but currently I do not know a better solution,
+when I tried to just install the <code>gnome</code> without <code>xorg</code> the nxclient connection did not succeed.
+If someone with better knowledge of GNOME/X server/NX server dependencies knows a better approach,
+please, let me know.</p>
+
+<p>Anyway, let's remove the GDM for now:</p>
+
+<pre><code>deb# apt-get remove gdm
+Reading package lists... Done
+Building dependency tree... Done
+The following packages will be REMOVED:
+  fast-user-switch-applet gdm gdm-themes gnome gnome-desktop-environment
+0 upgraded, 0 newly installed, 5 to remove and 0 not upgraded.
+Need to get 0B of archives.
+After unpacking 17.4MB disk space will be freed.
+Do you want to continue [Y/n]? Y
+(Reading database ... 52440 files and directories currently installed.)
+Removing gnome ...
+Removing gnome-desktop-environment ...
+Removing fast-user-switch-applet ...
+Removing gdm-themes ...
+Removing gdm ...
+Stopping GNOME Display Manager: gdm.
+</code></pre>
+
+<p>... and also the xserver:</p>
+
+<pre><code>deb# apt-get remove xserver-xorg
+Reading package lists... Done
+Building dependency tree... Done
+The following packages will be REMOVED:
+  xorg xserver-xorg xserver-xorg-core xserver-xorg-input-all
+  xserver-xorg-input-evdev xserver-xorg-input-kbd xserver-xorg-input-mouse
+  xserver-xorg-input-synaptics xserver-xorg-video-all xserver-xorg-video-apm
+  xserver-xorg-video-ark xserver-xorg-video-ati xserver-xorg-video-chips
+  xserver-xorg-video-cirrus xserver-xorg-video-cyrix xserver-xorg-video-dummy
+  xserver-xorg-video-fbdev xserver-xorg-video-glint xserver-xorg-video-i128
+  xserver-xorg-video-i740 xserver-xorg-video-i810 xserver-xorg-video-imstt
+  xserver-xorg-video-mga xserver-xorg-video-neomagic
+  xserver-xorg-video-newport xserver-xorg-video-nsc xserver-xorg-video-nv
+  xserver-xorg-video-rendition xserver-xorg-video-s3
+  xserver-xorg-video-s3virge xserver-xorg-video-savage
+  xserver-xorg-video-siliconmotion xserver-xorg-video-sis
+  xserver-xorg-video-sisusb xserver-xorg-video-tdfx xserver-xorg-video-tga
+  xserver-xorg-video-trident xserver-xorg-video-tseng xserver-xorg-video-v4l
+  xserver-xorg-video-vesa xserver-xorg-video-vga xserver-xorg-video-via
+  xserver-xorg-video-vmware xserver-xorg-video-voodoo
+0 upgraded, 0 newly installed, 44 to remove and 0 not upgraded.
+Need to get 0B of archives.
+After unpacking 19.3MB disk space will be freed.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>...and reboot to make sure the boot-up startx problem is gone.</p>
+
+<p><strong>Screensaver draining the CPU</strong></p>
+
+<p>The default GNOME screensaver <em>"Floating Debian"</em> was relatively CPU greedy.
+I disabled it and choose the <em>"Blank screen"</em> (<em>Desktop -> Preferences -> Screensaver</em>).</p>
+
+<p><a name="gnome-not-responding"></a>
+<em>Gnome stopped responding</em></p>
+
+<p>Initially I ran the GNOME and had not the CUPS server installed.
+Everything went fine but after few days a problem emerged.
+When I logged in desktop environment after some time
+(typically couple dozens of seconds) it stopped responding.</p>
+
+<p>When I tried to start gnome session directly from console (using <a href="http://en.wikipedia.org/wiki/Xming">XMing server</a>),
+there was the same problem, but fortunately the following warning appeared on the console just about the same time
+the desktop stopped responding:</p>
+
+<pre><code>deb# gnome-session
+...
+** (gnome-cups-icon:6107): WARNING **: Could not start the printer tray icon, because the CUPS server could not be contacted.
+</code></pre>
+
+<p>The issue is very similar to <a href="https://answers.launchpad.net/ubuntu/+source/xorg/+question/52189">this (unresolved) one</a>.</p>
+
+<p>It is likely that the issue is not connected with NX server, but it is a coincidence that also the NX server
+installation complained about the fact that the CUPS server was not installed.</p>
+
+<p>As a solution I decided to install the CUPS server:</p>
+
+<pre><code>deb# apt-get install cupsys
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  cupsys-common libslp1 poppler-utils
+Suggested packages:
+  cupsys-bsd cupsys-driver-gutenprint cupsys-driver-gimpprint
+  foomatic-filters-ppds xpdf-korean xpdf-japanese xpdf-chinese-traditional
+  xpdf-chinese-simplified cups-pdf hplip slpd openslp-doc
+Recommended packages:
+  cupsys-client smbclient foomatic-filters
+The following NEW packages will be installed:
+  cupsys cupsys-common libslp1 poppler-utils
+0 upgraded, 4 newly installed, 0 to remove and 0 not upgraded.
+Need to get 2604kB of archives.
+After unpacking 12.1MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>The installation complained about non-multicasting kernel, but hopefully it will not be a big problem:</p>
+
+<pre><code>To reduce network traffic use a IP multicast enabled kernel
+
+The kernel version that you are currently running does not appear to     
+support IP multicast. OpenSLP will continue to work even without
+multicast support in the kernel by using broadcasts. However, broadcasts 
+are less efficient on the network, so please consider upgrading to a
+multicast enabled kernel.
+</code></pre>
+
+<p><strong>Missing fonts</strong></p>
+
+<p>When I run emacs the following error appeared:</p>
+
+<pre><code>deb# emacs
+Warning: Cannot convert string "-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-*" to type FontStruct
+Warning: Cannot convert string "-*-helvetica-medium-r-*--*-120-*-*-*-*-iso8859-1" to type FontStruct
+</code></pre>
+
+<p>... and the emacs application looked as follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Sconc2T6NpI/AAAAAAAACz0/gecPBude3lU/s1600-h/emacs-fonts.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 346px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Sconc2T6NpI/AAAAAAAACz0/gecPBude3lU/s400/emacs-fonts.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317105686633133714" /></a></p>
+
+<p>The XOrg configuration seemed ok:</p>
+
+<pre><code>deb# cat /etc/X11/xorg.conf | grep FontPath
+        FontPath        "/usr/share/fonts/X11/misc"
+        FontPath        "/usr/share/fonts/X11/cyrillic"
+        FontPath        "/usr/share/fonts/X11/100dpi/:unscaled"
+        FontPath        "/usr/share/fonts/X11/75dpi/:unscaled"
+        FontPath        "/usr/share/fonts/X11/Type1"
+        FontPath        "/usr/share/fonts/X11/100dpi"
+        FontPath        "/usr/share/fonts/X11/75dpi"
+        FontPath        "/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType"
+</code></pre>
+
+<p>... the font paths really exist and contain the corresponding fonts:</p>
+
+<pre><code>deb# find /usr/share/fonts/X11/ -name *helv*
+/usr/share/fonts/X11/100dpi/helvB08.pcf.gz
+/usr/share/fonts/X11/100dpi/helvB10.pcf.gz
+/usr/share/fonts/X11/100dpi/helvB12.pcf.gz
+...
+</code></pre>
+
+<p>Really, there were some fonts matching the font name patterns:</p>
+
+<pre><code>deb# xlsfonts -fn '-*-helvetica-medium-r-*-*-*-120-*-*-*-*-iso8859-1'
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-0-iso8859-1
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-0-iso8859-1
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-67-iso8859-1
+-adobe-helvetica-medium-r-normal--17-120-100-100-p-88-iso8859-1
+deb# xlsfonts -fn '-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-*'
+-adobe-courier-medium-r-normal--12-120-75-75-m-0-iso8859-1
+-adobe-courier-medium-r-normal--12-120-75-75-m-0-iso8859-1
+-adobe-courier-medium-r-normal--12-120-75-75-m-70-iso8859-1
+-adobe-courier-medium-r-normal--17-120-100-100-m-100-iso8859-1
+</code></pre>
+
+<p>Finally the solution (or at least workaround, since I initially thought it should not be necessary)
+was to download the additional fonts for nxclient (windows side) from
+the <a href="http://www.nomachine.com/download-client-windows.php">NoMachine site</a>.
+It helped in my case, although I don't fully understand why it was necessary, see the<br/>
+note from the <em>NoMachine</em> site:</p>
+
+<blockquote><p>NOTE: The additional fonts are only needed when running very old Unix applications,
+requiring the use of client-side fonts. All recent Unix applications use fonts stored
+on the server, that are fully supported by NX.</i></p></blockquote>
+
+<p><strong>Microsoft TrueType fonts</strong></p>
+
+<p>With default settings some websites (like <a href="http://www.reddit.com">Reddit</a> render in fonts without antialiasing.
+The page with such fonts looks like follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Su6iDHzJjbI/AAAAAAAADWk/hmJMS0XOg4g/s1600-h/reddit-alias.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 336px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Su6iDHzJjbI/AAAAAAAADWk/hmJMS0XOg4g/s400/reddit-alias.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5399431177780694450" /></a></p>
+
+<p>In font mapper settings you can probably do many things about it, but I am not expert in this area.
+What worked for me was to install the fonts I am used to - the <a href="http://packages.debian.org/lenny/msttcorefonts">msttcorefonts package</a>.</p>
+
+<p>In order to be able to install the fonts, you have to extend your <code>sources.list</code> to provide access to non-free packages.
+For detailed explanation see <a href="http://www.marksanborn.net/linux/installing-microsoft-fonts-msttcorefonts-on-debian-linux/">this post</a>.</p>
+
+<p>After the successful installation the same site looks as follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Su6jsWU-8GI/AAAAAAAADWs/KLGd2rIR9JY/s1600-h/reddit-noalias.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 327px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Su6jsWU-8GI/AAAAAAAADWs/KLGd2rIR9JY/s400/reddit-noalias.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5399432985566965858" /></a></p>
+
+  </div>
+
+  <div><a name="/programming/cpp/unix/2008/06/26/aix-crash-analysis/">&nbsp;</a>
+    <blockquote><p>Note: this is just a slightly modified version of my <a href="http://filodej.blogspot.com/2008/06/hard-aix-crash.html">original BlogSpot post</a>.
+I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to <a href="http://en.wikipedia.org/wiki/Markdown">MarkDown</a>).</p></blockquote>
+
+<p>Few days ago we had to solve an odd crash on AIX platform (powerpc chip). The company I am working in as a developer uses mainly
+MS Windows as a development platform but supports Linux as well as Unix platforms (namely AIX, HP-UX and Solaris).</p>
+
+<p>The crash was only on AIX and we was not able to replicate it on any other platform. Our Unix experience is not such as it
+should be so it is always painful process to solve it when such a platform specific bug appears.</p>
+
+<p>What I am going to describe here is too technical and boring for a majority of people, and on the other side
+maybe too trivial for those UNIX developers more experienced than me, but I hope there could be some (evenly non-practiced) developers
+out there who could find this information helpful or at least interesting.</p>
+
+<p>The crash we experienced was easily replicable and was always at the same place - there was a totally innocent looking member
+function, its code is something like the following:</p>
+
+<pre><code>virtual T const&amp; get( unsigned int id ) const
+{    &lt;---------------------------- The crash was right here before anything happen
+    if ( id &lt; static_cast&lt;unsigned int&gt;( m_values.size() ) )
+    return get_internal( id );
+    throw ExceptionNotFound( LOCARG, id, count() );
+    UNREACHABLE_RETURN( T() );
+}
+</code></pre>
+
+<p>The object instance was ok, the <em>id</em> parameter was in range &lt;0, m_values.size() ), there was no apparent
+reason why it should crash. So it was necessary to sink at the assembly level. The code for this function
+started as follows (<a href="http://felinemenace.org/~nemo/docs/ppcasm/ppc-stack-1.html">PowerPC Stack Attacks</a>
+helped us to interpret the code):</p>
+
+<pre><code>0x39927250 (get(unsigned int) const)      7c0802a6       mflr   r0            Function call prologue 
+0x39927254 (get(unsigned int) const+0x4)  93e1fffc        stw   r31,-4(r1)    routine (seems like the  
+0x39927258 (get(unsigned int) const+0x8)  93c1fff8        stw   r30,-8(r1)    registers are associated 
+0x3992725c (get(unsigned int) const+0xc)  93a1fff4        stw   r29,-12(r1)   with individual local
+0x39927260 (get(unsigned int) const+0x10) 9381fff0        stw   r28,-16(r1)   variables)
+0x39927264 (get(unsigned int) const+0x14) 9361ffec        stw   r27,-20(r1)
+0x39927268 (get(unsigned int) const+0x18) 9341ffe8        stw   r26,-24(r1)
+0x3992726c (get(unsigned int) const+0x1c) 90010008        stw   r0,0x8(r1)
+0x39927270 (get(unsigned int) const+0x20) 9421ed30       stwu   r1,-4816(r1) -&gt; !Here was the segfault!
+0x39927274 (get(unsigned int) const+0x24) 83e2017c        lwz   r31,0x17c(r2)    
+0x39927278 (get(unsigned int) const+0x28) 83c20180        lwz   r30,0x180(r2)  What this code does is 
+...                                                                            that a new stack frame 
+                                                                               is "created" and the 
+                                                                               stack pointer register 
+                                                                               (r1) is updated.
+                                                                               The "stwu" instruction  
+                                                                               stores the current  
+                                                                               content of the r1  
+                                                                               register at address  
+                                                                               computed as (r1-offset)  
+                                                                               and decrements the r1  
+                                                                               by offset at the same  
+                                                                               time (offset is 4816 
+                                                                               bytes in this case)
+</code></pre>
+
+<p>Initially we thought that due to the stack corruption the the stack pointer (<code>r1</code>) contain
+incorrect address (pointing to a read-only memory page) and so the write operation to that
+address failed.</p>
+
+<p>Here is the stack pointer register value:</p>
+
+<pre><code>(dbx) registers
+  $r0:0x3d1dd854  $stkp:0x400f5cb0   $toc:0x3a7071dc    $r3:0x40146fb0
+  ...
+</code></pre>
+
+<p>When we looked to the address <code>0x400f5cb0</code> we could see an address of the previous frame,
+at that address was the previous one and over and over. This way was possible to traverse
+down to the stack and everything seemed consistent. The stack did not seem to be corrupted
+at all.</p>
+
+<pre><code>(dbx) 0x400f5cb0/4X
+0x400f5cb0:  400f5d00 00000000 3d2b2854 00000000      (   80 bytes)
+(dbx) 0x400f5d00/4X
+0x400f5d00:  400f7010 00000000 3d2b228c 00000000      ( 4880 bytes)
+(dbx) 0x400f7010/4X
+0x400f7010:  400f70e0 00000000 3d2b410c 00000000      (  208 bytes)
+(dbx) 0x400f70e0/4X
+0x400f70e0:  400fd560 00000000 3d287294 00000000      (25728 bytes)
+(dbx) 0x400fd560/4X
+0x400fd560:  401026e0 00000000 3d289bd0 00000000      (20864 bytes)
+(dbx) 0x401026e0/4X
+0x401026e0:  40102750 00000000 3d28a0cc 00000000      (  112 bytes)
+</code></pre>
+
+<p>The interesting part was the stack frame size (4816 bytes) - the fact that the memory at
+the current <code>stkp</code> address seemed to contain a consistent data while the
+attempt to write to an address computed as <code>0x400f5cb0-4816 == 0x400f49e0</code> results in
+the segmentation violation brought us to an idea that it could be the stack overflow.</p>
+
+<p>The documentation at the IBM Systems Information Center describes the following structure of call stack and
+related data structures (for whole documentation see
+<a href="http://publib.boulder.ibm.com/infocenter/systems/topic/com.ibm.aix.prftungd/doc/prftungd/thread_env_vars.htm">this page</a> ):</p>
+
+<pre><code> *      +-----------------------+
+ *      | page alignment 2      |
+ *      | [8K-4K+PTH_FIXED-a1]  |
+ *      +-----------------------+
+ *      | pthread ctx [368]     |
+ *      +-----------------------+&lt;--- pthread-&gt;pt_attr
+ *      | pthread attr [112]    |
+ *      +-----------------------+ &lt;--- pthread-&gt;pt_attr
+ *      | pthread struct [960]  |
+ *      +-----------------------+ &lt;--- pthread
+ *      | pthread stack         |         pthread-&gt;pt_stk.st_limit
+ *      |   |[96K+4K-PTH_FIXED] |
+ *      |   V                   |
+ *      +-----------------------+ &lt;--- pthread-&gt;pt_stk.st_base
+ *      | RED ZONE [4K]         |
+ *      +-----------------------+ &lt;--- pthread-&gt;pt_guardaddr
+ *      | pthread key data [4K] |
+ *      +-----------------------+ &lt;--- pthread-&gt;pt_data
+ *      | page alignment 1 (a1) |
+ *      | [&lt;4K]                 |
+ *      +-----------------------+
+
+The RED ZONE on this illustration is called the Guardpage.
+
+The decimal number of guard pages to add to the end of the pthread stack is n, which overrides 
+the attribute values that are specified at pthread creation time. If the application specifies 
+its own stack, no guard pages are created. The default is 0 and n must be a positive value.
+The guardpage size in bytes is determined by multiplying n by the PAGESIZE. Pagesize is 
+a system-determined size.
+</code></pre>
+
+<p>The relatively small default call stack size (96K) supported our hypothesis. We needed just to find
+a proof that the address being written to is actually the RED ZONE.</p>
+
+<p>Here is the memory dump retrieved from the <code>dbx</code> along with my comments (please note that the address
+orientation is reversed relatively to previous schema):</p>
+
+<pre><code>(dbx) 0x400f3fe8/2048X
+0x400f3fe8:  00000000 00000000 00000000 00000000  ------&gt; Bottom of another thread's call stack
+0x400f3ff8:  00000001 40135cac 40135cac 40135cac  ----&gt; 
+0x400f4008:  f0286708 f0286708 f0286708 f0286708  ----&gt; Guard page (aka "Red zone")
+0x400f4018:  f0286708 f0286708 f0286708 f0286708        Read/write protected memory region
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   (4096 bytes)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+0x400f49c8:  f0286708 f0286708 f0286708 f0286708
+0x400f49d8:  f0286708 f0286708(f0286708)f0286708  &lt;---.  BOOM (Segmentation fault)
+0x400f49e8:  f0286708 f0286708 f0286708 f0286708      |  Attempt to write to the 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |  "red zone" (guard page
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |   
+0x400f4fe8:  f0286708 f0286708 f0286708 f0286708      |
+0x400f4ff8:  f0286708 f0286708 00000000 00000000   ---+-&gt; Top of the current thread's call stack
+0x400f5008:  00000000 00000000 00000000 00000000      |   
+0x400f5018:  00000000 00000000 00000000 00000000      |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  |
+0x400f5988:  00000000 00000000 00000000 00000000      | 
+0x400f5c78:  00000000 00000000 400f5cd0 00000000      | 4816 bytes
+0x400f5c88:  00000000 00000000 00000000 00000000      |
+0x400f5c98:  400fd5b8 401ad028 4019fa58 40165f90    --'
+0x400f5ca8:  3d4263e8 3d9981e8(400f5d00)00000000  &lt;---.
+0x400f5cb8:  3d2b2854 00000000 401ad028 3d9bd578      |
+0x400f5cc8:  00000000 00000000 400f5d20 00000000      |
+0x400f5cd8:  39a87794 00000000 00000000 00000000      |
+0x400f5ce8:  40165cc4 00000000 00000000 00000000    --'   80 bytes 
+0x400f5cf8:  00000000 00000000(400f7010)00000000  &lt;---.
+0x400f5d08:  3d2b228c 00000000 401ad028 00000000      |
+0x400f5d18:  40165f90 00000000 400f6ff0 00000000      |
+0x400f5d28:  39a74c24 00000000 00000000 00000000      |
+0x400f5d38:  40165cc0 00000000 00000000 00000000      |  4880 bytes
+0x400f5d48:  00000000 00000000 00000000 00000000      |
+0x400f5d58:  00000000 00000000 00000000 00000000      | 
+0x400f5d68:  00000000 00000000 00000000 00000000      . Linked list of current thread's stack frames
+0x400f5d78:  00000000 00000000 00000000 00000000      . 
+(dbx)
+</code></pre>
+
+<p>Those almost 5 kilobytes stack frames were caused by Exception objects residing on stack. Our exception implementation holds relatively big array of wide characters (to avoid heap allocations in case of a failure) and so in some cases the exceptions (though not thrown, just prepared on stack to be thrown in case something fails) consume substantial portion of stack memory and finally cause the stack overflow error.</p>
+
+<p>Just now I am quite happy that we have found and solved this problem and
+at the same time have learned something new.</p>
+
+<p>It is necessary to a priori know the maximum call stack size and the default values for AIX system are relatively low.
+Since the architecture has no special support for the call stack, the only available diagnostics is a <em>Guard page</em>
+(aka <em>Red zone</em>). It is implemented as <em>N</em> read/write protected memory pages mapped above the call stack limit
+(please, node that regarding the documentation this functionality is disabled by default). A Stack overflow event then
+(if you are lucky) causes the "normal" segmentation violation - the same as as any other invalid access to a protected
+memory region and so it is relatively difficult to diagnose for a developers with not much platform-specific experience.</p>
+
+<p><em>Post note:</em> There is an interesting <a href="http://www.priorartdatabase.com/IPCOM/000117422/">document</a> about method called
+"Automatically Extensible Discontinuous Stacks" - a method eliminating the need of the stack size pre-knowledge.</p>
+
+  </div>
+
+</div>
+
+
+
+<div class="footer">
+  Page generated: 23 Apr 2013
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>
