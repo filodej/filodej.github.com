@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>PDF stream content anatomy</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <div id="post">
+<h2>PDF stream content anatomy</h2>
+<!--<span>Published: 2012-03-09 00:00:00 +0100</span>
+
+-->
+<h1>Overview</h1>
+
+<p>This post describes how to analyze the content of a PDF file with using just low level linux command-line
+tools, namely: <a href="http://en.wikipedia.org/wiki/Ls">ls</a>, <a href="http://en.wikipedia.org/wiki/Head_%28Unix%29">head</a>,
+<a href="http://en.wikipedia.org/wiki/Tail_%28Unix%29">tail</a>, <a href="http://en.wikipedia.org/wiki/Dd_%28Unix%29">dd</a>,
+<a href="http://en.wikipedia.org/wiki/AWK">awk</a>, <a href="http://en.wikipedia.org/wiki/Sed">sed</a>,
+<a href="http://en.wikipedia.org/wiki/Wc_%28Unix%29">wc</a>, <a href="http://en.wikipedia.org/wiki/Gzip">gzip</a> and
+<a href="http://en.wikipedia.org/wiki/Chmod">chmod</a>.</p>
+
+<p>It was inspired by a screencast available <a href="http://www.youtube.com/watch?v=k34wRxaxA_c">here</a>.</p>
+
+<h1>Basic operations</h1>
+
+<h2>Parsing XREF table</h2>
+
+<p>Given we have a pdf file called <code>test.pdf</code>. We can simply look at its cross reference table.
+Its byte offset is stored just at the end of the PDF file:</p>
+
+<pre><code>$ tail test.pdf 
+0000588961 00000 n 
+0000589014 00000 n 
+trailer
+&lt;&lt; /Size 315
+/Root 313 0 R
+/Info 314 0 R
+/ID [&lt;E571FA644538D6F88683F97FDE1B2C10&gt; &lt;E571FA644538D6F88683F97FDE1B2C10&gt;] &gt;&gt;
+startxref
+589220
+%%EOF
+</code></pre>
+
+<p>So we can see that the table starts at offset <code>589220</code>.</p>
+
+<p>With this information we can use the <code>dd</code> command to extract just part of the file beginning at given byte offset:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | head
+xref
+0 315
+0000000000 65535 f 
+0000004897 00000 n 
+0000004792 00000 n 
+0000000015 00000 n 
+0000588020 00000 n 
+0000572747 00000 n 
+0000587850 00000 n 
+0000571755 00000 n 
+</code></pre>
+
+<p>With help of <code>sed</code> tool we skip the first 3 lines (<code>xref</code> identifier, object number
+  and so called <code>ZERO</code> object) and with we <code>awk</code> generate the sequential object numbers
+  in front of each table line:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | sed 1,3d | awk '{print NR,$0}' | head
+1 0000004897 00000 n 
+2 0000004792 00000 n 
+3 0000000015 00000 n 
+4 0000588020 00000 n 
+5 0000572747 00000 n 
+6 0000587850 00000 n 
+7 0000571755 00000 n 
+8 0000552423 00000 n 
+9 0000571586 00000 n 
+10 0000551777 00000 n 
+</code></pre>
+
+<p>The result looks good so we can extract such cross reference table to a separate file
+for later use:</p>
+
+<pre><code>$ dd if=test.pdf bs=1 skip=589220 2&gt;/dev/null | sed 1,3d | awk '{print NR,$0}' &gt; test.pdf.xref
+</code></pre>
+
+<p>We can encapsulate this functionality to a helper script.</p>
+
+<p>It is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/initxref.sh">initxref.sh</a> and its usage is as follows:</p>
+
+<pre><code>$ ./initxref.sh test.pdf
+</code></pre>
+
+<h2>Extracting object</h2>
+
+<p>Now we look at the bottom of the PDF file once again:</p>
+
+<pre><code>$ tail test.pdf 
+0000588961 00000 n 
+0000589014 00000 n 
+trailer
+&lt;&lt; /Size 315
+/Root 313 0 R
+/Info 314 0 R
+/ID [&lt;E571FA644538D6F88683F97FDE1B2C10&gt; &lt;E571FA644538D6F88683F97FDE1B2C10&gt;] &gt;&gt;
+startxref
+589220
+%%EOF
+</code></pre>
+
+<p>... we can see that the document <code>Info</code> is stored as object number <code>314</code> and document Root as <code>313</code>.</p>
+
+<p>Now we try to convert the oject numbers to corresponding document offsets, we can use our <code>test.pdf.xref</code> for it:</p>
+
+<pre><code>$ OBJ=313; grep -e "^$OBJ " test.pdf.xref
+314 0000589014 00000 n
+</code></pre>
+
+<p>Good, now we cut just the second column containing value representing a byte offset:</p>
+
+<pre><code>$ OBJ=314; grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2
+0000589014
+</code></pre>
+
+<p>... and convert the value to its numeric representation:</p>
+
+<pre><code>$ OBJ=314; grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2 | bc
+589014
+</code></pre>
+
+<p>Now we can use the offset to actually extract the corresponding data from the PDF stream:</p>
+
+<pre><code>$ OBJ=314; OFFSET=$(grep -e "^$OBJ " test.pdf.xref | cut -d" " -f2 | bc); dd if=test.pdf bs=1 skip=$OFFSET 2&gt;/dev/null | head
+314 0 obj &lt;&lt;
+/Producer (pdfeTeX-1.30.4)
+/Creator (TeX)
+/CreationDate (D:20060829204334-05'00')
+/PTEX.Fullbanner (This is pdfeTeX, Version 3.141592-1.30.4-2.2 (Web2C 7.5.5) kpathsea version 3.5.5)
+&gt;&gt; endobj
+...
+</code></pre>
+
+<p>Before we proceed, we can encapsulate the functionality to a simple script.</p>
+
+<p>It is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/catobj.sh">catobj.sh</a> and its usage is as follows:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 314
+</code></pre>
+
+<h2>Traversing hierarchy</h2>
+
+<p>And now we can start to inspect the document hierarchy:</p>
+
+<p>Document info:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 314
+314 0 obj &lt;&lt;
+   /Producer (pdfeTeX-1.30.4)
+   /Creator (TeX)
+   /CreationDate (D:20060829204334-05'00')
+   /PTEX.Fullbanner (This is pdfeTeX, Version 3.141592-1.30.4-2.2 (Web2C 7.5.5) kpathsea version 3.5.5)
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 313
+313 0 obj &lt;&lt;
+   /Type /Catalog
+   /Pages 312 0 R
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document pages tree root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 312
+312 0 obj &lt;&lt;
+   /Type /Pages
+   /Count 11
+   /Kids [22 0 R 245 0 R]
+&gt;&gt; endobj
+</code></pre>
+
+<p>Document pages left sub-tree root:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 22
+22 0 obj &lt;&lt;
+   /Type /Pages
+   /Count 6
+   /Parent 312 0 R
+   /Kids [2 0 R 24 0 R 30 0 R 48 0 R 58 0 R 179 0 R]
+&gt;&gt; endobj
+</code></pre>
+
+<p>Left-most (first) page:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 2
+2 0 obj &lt;&lt;
+   /Type /Page
+   /Contents 3 0 R
+   /Resources 1 0 R
+   /MediaBox [0 0 612 792]
+   /Parent 22 0 R
+&gt;&gt; endobj
+</code></pre>
+
+<p>Its content:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3
+3 0 obj &lt;&lt;
+   /Length 4698      
+   /Filter /FlateDecode
+&gt;&gt;
+stream
+...
+</code></pre>
+
+<h2>Extracting content</h2>
+
+<p>We see that the content has a form of a deflated stream, so we have to pass is through a zlib filter.</p>
+
+<p>But, first we have to skip the first 5 lines before the actual start of the stream data. So we compute the size of first 5 lines in bytes:</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 | head -n5 | wc -c
+61
+</code></pre>
+
+<p>We also know the length of the compressed data is 4698 bytes, so now we can use the additional two parameters of our script
+(we do not want to print the binary data to the terminal, so for now we just count number of bytes):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | wc -c
+4698
+</code></pre>
+
+<p>In order to be able to actually read the content of the stream, we have to inflate it. We can use the <em>gzip</em> command for that,
+but first we have to prepare a wrapper script adding an artificial gzip header:</p>
+
+<pre><code>$ cat ./inflate.sh 
+#!/bin/sh
+( /bin/echo -ne '\037\0213\010\0\0\0\0\0' ; cat "$@" ) | gzip -dc 2&gt;/dev/null
+</code></pre>
+
+<p>Now we make the script executable:</p>
+
+<pre><code>$ chmod +x inflate.sh
+</code></pre>
+
+<p>The helper script is available here: <a href="https://github.com/filodej/filodej.github.com/blob/master/code/pdf/inflate.sh">inflate.sh</a>.</p>
+
+<p>Now we are ready to extract the content of deflated PDF stream (we can see the actual PDF interpreter commands):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | ./inflate.sh | head -n15
+1 0 0 1 54 720 cm
+0 g 0 G
+1 0 0 1 502.117 0 cm
+0 g 0 G
+1 0 0 1 -502.117 0 cm
+0 g 0 G
+1 0 0 1 46.144 -19.329 cm
+0 g 0 G
+0 g 0 G
+1 0 0 1 -100.144 -700.671 cm
+BT
+/F30 17.933 Tf 103.631 700.671 Td[(An)-250(Incr)18(emental)-250(A)25(ppr)18(oach)-250(to)-250(Compiler)...
+ET
+1 0 0 1 54 608.267 cm
+0 g 0 G
+</code></pre>
+
+<p>With a simple <code>sed</code> expression we can split and inspect the individual content command sequences
+(individual text strings interleaved with horizontal moves are apparent there):</p>
+
+<pre><code>$ ./catobj.sh test.pdf 3 4698 61 | ./inflate.sh | awk 'NR==12' | sed -e "s/)/\"\n/g" -e "s/(/\n\"/g"
+/F30 17.933 Tf 103.631 700.671 Td[
+"An"
+-250
+"Incr"
+18
+"emental"
+-250
+"A"
+25
+"ppr"
+18
+"oach"
+-250
+"to"
+-250
+"Compiler"
+-250
+"Construction"
+]TJ/F31 10.959 Tf 156.836 -35.866 Td[
+"Abdulaziz"
+-250
+"Ghuloum"
+]TJ/F31 8.966 Tf -96.018 -14.944 Td[
+"Department"
+-250
+"of"
+-250
+...
+</code></pre>
+
+<p>It is clearly visible how the text content is represented. We can easily distinguish individual text elements
+interleaved with horizontal text cursor moves.</p>
+
+<p>However, this is not the only possible way how the texts are stored in a PDF file. The following section will
+demonstrate other possibility how the texts can be represented.</p>
+
+<h1>Cairo library output</h1>
+
+<p>I am using the <a href="http://cairographics.org/">Cairo library</a> for generating both rasters and PDF documents.</p>
+
+<p>There are various ways how to render texts in the Cairo API. Let's look at the individual variants:</p>
+
+<h1>Only text</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-text">cairo_show_text()</a> call.</p>
+
+<p>The text in PDF is not correctly shaped in some cases, but the original text is preserved if we copy
+it to clipboard or print its text content.</p>
+
+<h2>PDF document</h2>
+
+<p><a href="/docs/pdf/hb-deva-text.pdf">hb-deva-text.pdf</a></p>
+
+<h2>Text output</h2>
+
+<pre><code>  $ pdftotext hb-deva-text.pdf -
+  Marathi:
+  स्वागत आहे
+  आपले नाव काय आहे?
+  Hindi:
+  सवागत हैं
+  तुम्हारा नाम क्या है?
+  Sanskrit:
+  द + ् + ध + ् + र + ् + य = द्ध्र्य
+  पूर्वेभिर्र्षिभिरीड्यो
+</code></pre>
+
+<h1>Only glyphs</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-glyphs">cairo_show_glyphs()</a> call.</p>
+
+<p>The text looks visually correct, but the original text input is not preserved. It seems
+that someone is trying to heuristically map glyphs back to original text and store such text
+to the resulting PDF stream, but obviously this approach does not work well
+for <a href="http://en.wikipedia.org/wiki/Complex_text_layout">CTL texts</a>.</p>
+
+<h2>PDF document</h2>
+
+<p><a href="/docs/pdf/hb-deva-glyphs.pdf">hb-deva-glyphs.pdf</a></p>
+
+<h2>Text output</h2>
+
+<pre><code>   $ pdftotext hb-deva-glyphs.pdf -
+   Marathi:
+   �वागत आहे
+   आपले नाव काय आहे?
+   Hindi:
+   सवागत हंै
+   तु�हारा नाम �या है?
+   Sanskrit:
+   द + ् + ध + ् + र + ् + य = द्ध्र्य
+   पूव�िभ��ष�िभरी�ो
+</code></pre>
+
+<h2>PDF content inspection</h2>
+
+<p>Several methods how the glyph -> char mapping is being realized is decribed in <a href="http://www.glyphandcog.com/textext.html">this page</a>.</p>
+
+<p>Let's make a quick analysis of the <em>glyph-only</em> generated PDF file:</p>
+
+<p>First let's initialize the cross-reference table:</p>
+
+<pre><code>$ ./initxref.sh hb-deva-glyphs.pdf
+</code></pre>
+
+<p>Now we look at the end of the file to see where the object hierarchy starts:</p>
+
+<pre><code> $ tail hb-deva-glyphs.pdf -n8
+ trailer
+ &lt;&lt; /Size 15
+    /Root 14 0 R
+    /Info 13 0 R
+ &gt;&gt;
+ startxref
+ 21826
+ %%EOF
+</code></pre>
+
+<p>We can see that the root of the PDF object hierarchy starts at the object number 14, so let's look at it:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 14
+ 14 0 obj
+ &lt;&lt; /Type /Catalog
+     /Pages 1 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that the /Pages/ hierarchy starts at index 1:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 1
+ 1 0 obj
+ &lt;&lt; /Type /Pages
+     /Kids [ 6 0 R ]
+     /Count 1
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can go deeper to print the first (and only) /Page/ object - it is object number 6:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 6
+ 6 0 obj
+ &lt;&lt; /Type /Page
+    /Parent 1 0 R
+    /MediaBox [ 0 0 595.28 841.89 ]
+    /Contents 3 0 R
+    /Group &lt;&lt;
+        /Type /Group
+        /S /Transparency
+        /CS /DeviceRGB
+    &gt;&gt;
+    /Resources 2 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that the page /Contents/ is in object number 3:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3
+ 3 0 obj
+ &lt;&lt; /Length 4 0 R
+    /Filter /FlateDecode
+ &gt;&gt;
+ stream
+ ...
+ endstream
+ endobj
+</code></pre>
+
+<p>The stream content looks like a garbage. That's because it is deflated. So let's inflate it
+in order to see its content. For that we need to know the <em>exact start offset</em> and also
+the <em>size</em> of the stream.</p>
+
+<p>First we count the offset by counting number of characters of the object header:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3 | head -n5 | wc -c
+ 59
+</code></pre>
+
+<p>Then we print the content of the object 10 representing the soze of the stream:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 4
+ 4 0 obj
+     339
+ endobj
+</code></pre>
+
+<p>Now we are ready to read the actual stream content and pass it through the inflate filter:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 3 339 59 | ./inflate.sh
+ q
+ 0 841.89 595 -841 re W n
+ 0.784314 0.784314 0.392157 rg /a0 gs
+ 50 791.89 500 -300 re f*
+ 0 0 0 rg BT
+ 24 0 0 24 50 766.237656 Tm
+ /f-0-0 1 Tf
+ &lt;00010002000300020004000500060007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;00080009000a000b000c000d000e000f&gt;-13&lt;0010&gt;]TJ
+ 0 -1.339844 Td
+ [&lt;000e001100120010000d0013000a0009000d0014000a0015000d000e000f&gt;-13&lt;0010&gt;13&lt;00
+ 16&gt;]TJ
+ 0 -1.339844 Td
+ &lt;001700060018001900060007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;001a0009000a000b000c000d000f&gt;-13&lt;001b001c&gt;]TJ
+ 0 -1.339844 Td
+ [&lt;000c001d001e000f000a001f000a000d0013000a0020000d00210015000a000d000f&gt;-13&lt;00
+ 1c&gt;13&lt;0016&gt;]TJ
+ 0 -1.339844 Td
+ &lt;002200020018002300240003000600040007&gt;Tj
+ 0 -1.339844 Td
+ [&lt;0025000d0026000d0027000d0026000d0028000d0026000d0027000d0026000d001f
+ 000d0026000d0027000d0026000d0015000d0029000d0025&gt;-34&lt;0027&gt;34&lt;00280027
+ 001f&gt;22&lt;0027&gt;-22&lt;0015&gt;]TJ
+ 0 -1.339844 Td
+ &lt;0011002a0009002b002c002d002e002f00300031002c002d001f003200330034000d&gt;Tj
+ ET
+ Q
+</code></pre>
+
+<p>So we can distinguish the following kinds of commands:</p>
+
+<ul>
+<li><code>q</code>/<code>Q</code> ... save/restore <em>graphics state</em></li>
+<li><code>re W n</code> ... <em>rectangle</em> with winding rule specification and no fill/stroke</li>
+<li><code>rg /a0 gs</code> ... set <em>RGB color</em> and further manipulation of the <em>graphic state</em></li>
+<li><code>re f*</code> ... another <em>rectangle</em> with <em>fill rule</em></li>
+<li><code>rg</code> ... <em>RGB color</em> manipulation again</li>
+<li><code>BT</code>/<code>ET</code> ... begin/end of the <em>text object</em></li>
+<li><code>Tm</code> ... setting <em>text matrix</em></li>
+<li><code>Tf</code> ... setting <em>text font</em></li>
+<li><code>Tj</code> ... <em>show text</em> command</li>
+<li><code>Td</code> ... moving <em>text position</em></li>
+<li><code>TJ</code> ... <em>show text</em> command with individual glyph positioning</li>
+</ul>
+
+
+<p>If we look at an individual <code>Tj</code> command then we can see that there is a sequence of
+4-character glyph identifiers generated sequentially as the text on the page flows:</p>
+
+<p>The glyph sequence:</p>
+
+<pre><code> &lt; 0001 0002 0003 0002 0004 0005 0006 0007 &gt; Tj
+</code></pre>
+
+<p>represents text:</p>
+
+<pre><code>    M    a    r    a    t    h    i    :
+</code></pre>
+
+<p>(Note that the glyph <code>0002</code> is present at two places as it represents the <code>a</code> character)</p>
+
+<p>The <code>TJ</code> sequence represents sub-sequences of glyphs interleaved with horizontal cursor moves:</p>
+
+<pre><code> [ &lt; 0008 0009 000a 000b 000c 000d 000e 000f &gt; -13 &lt; 0010 &gt; ] TJ
+</code></pre>
+
+<p>But the question remains how we map the abstract <em>glyph IDs</em> back to a readable text?</p>
+
+<p>To be able to answer this question we need to extract the font resource associated with this text.</p>
+
+<p>Now we can look at the page resources. First lets dump the <code>Page</code> object again:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 6
+ 6 0 obj
+ &lt;&lt; /Type /Page
+    /Parent 1 0 R
+    /MediaBox [ 0 0 595.28 841.89 ]
+    /Contents 3 0 R
+    /Group &lt;&lt;
+         /Type /Group
+         /S /Transparency
+         /CS /DeviceRGB
+    &gt;&gt;
+    /Resources 2 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that PDF object <code>2</code> represents the <code>Resources</code>:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 2
+ 2 0 obj
+ &lt;&lt;
+    /ExtGState &lt;&lt;
+       /a0 &lt;&lt; /CA 1 /ca 1 &gt;&gt;
+    &gt;&gt;
+    /Font &lt;&lt;
+       /f-0-0 5 0 R
+    &gt;&gt;
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>The only <code>Font</code> resource is stored as object <code>5</code>:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 5
+ 5 0 obj
+ &lt;&lt; /Type /Font
+    /Subtype /Type0
+    /BaseFont /ZGXMCR+ArialUnicodeMS
+    /Encoding /Identity-H
+    /DescendantFonts [ 12 0 R]
+    /ToUnicode 9 0 R
+ &gt;&gt;
+ endobj
+</code></pre>
+
+<p>We can see that there is a <code>ToUnicode</code> table stored as part of the <code>Font</code> resource:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9
+ 9 0 obj
+ &lt;&lt; /Length 10 0 R
+    /Filter /FlateDecode
+ &gt;&gt;
+ stream
+ ...
+ endstream
+ endobj
+</code></pre>
+
+<p>Obviously its content is in a deflated stream. So again we have to determine
+the font header size:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9 | head -n5 | wc -c
+ 60
+</code></pre>
+
+<p>And the stream size:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 10
+ 10 0 obj
+    447
+ endobj
+</code></pre>
+
+<p>And now we are ready to inflate the contents of the <code>ToUnicode</code> table:</p>
+
+<pre><code> $ ./catobj.sh hb-deva-glyphs.pdf 9 447 60 | ./inflate.sh
+ /CIDInit /ProcSet findresource begin
+ 12 dict begin
+ begincmap
+ /CIDSystemInfo
+ &lt;&lt; /Registry (Adobe)
+    /Ordering (UCS)
+    /Supplement 0
+ &gt;&gt; def
+ /CMapName /Adobe-Identity-UCS def
+ /CMapType 2 def
+ 1 begincodespacerange
+ &lt;0000&gt; &lt;ffff&gt;
+ endcodespacerange
+ 52 beginbfchar
+ &lt;0001&gt; &lt;004d&gt;
+ &lt;0002&gt; &lt;0061&gt;
+ &lt;0003&gt; &lt;0072&gt;
+ &lt;0004&gt; &lt;0074&gt;
+ &lt;0005&gt; &lt;0068&gt;
+ &lt;0006&gt; &lt;0069&gt;
+ &lt;0007&gt; &lt;003a&gt;
+ &lt;0008&gt; &lt;fffd&gt;
+ &lt;0009&gt; &lt;0935&gt;
+ &lt;000a&gt; &lt;093e&gt;
+ &lt;000b&gt; &lt;0917&gt;
+ &lt;000c&gt; &lt;0924&gt;
+ &lt;000d&gt; &lt;0020&gt;
+ &lt;000e&gt; &lt;0906&gt;
+ &lt;000f&gt; &lt;0939&gt;
+ &lt;0010&gt; &lt;0947&gt;
+ &lt;0011&gt; &lt;092a&gt;
+ &lt;0012&gt; &lt;0932&gt;
+ &lt;0013&gt; &lt;0928&gt;
+ &lt;0014&gt; &lt;0915&gt;
+ &lt;0015&gt; &lt;092f&gt;
+ &lt;0016&gt; &lt;003f&gt;
+ &lt;0017&gt; &lt;0048&gt;
+ &lt;0018&gt; &lt;006e&gt;
+ &lt;0019&gt; &lt;0064&gt;
+ &lt;001a&gt; &lt;0938&gt;
+ &lt;001b&gt; &lt;0902&gt;
+ &lt;001c&gt; &lt;0948&gt;
+ &lt;001d&gt; &lt;0941&gt;
+ &lt;001e&gt; &lt;fffd&gt;
+ &lt;001f&gt; &lt;0930&gt;
+ &lt;0020&gt; &lt;092e&gt;
+ &lt;0021&gt; &lt;fffd&gt;
+ &lt;0022&gt; &lt;0053&gt;
+ &lt;0023&gt; &lt;0073&gt;
+ &lt;0024&gt; &lt;006b&gt;
+ &lt;0025&gt; &lt;0926&gt;
+ &lt;0026&gt; &lt;002b&gt;
+ &lt;0027&gt; &lt;094d&gt;
+ &lt;0028&gt; &lt;0927&gt;
+ &lt;0029&gt; &lt;003d&gt;
+ &lt;002a&gt; &lt;0942&gt;
+ &lt;002b&gt; &lt;fffd&gt;
+ &lt;002c&gt; &lt;093f&gt;
+ &lt;002d&gt; &lt;092d&gt;
+ &lt;002e&gt; &lt;fffd&gt;
+ &lt;002f&gt; &lt;fffd&gt;
+ &lt;0030&gt; &lt;0937&gt;
+ &lt;0031&gt; &lt;fffd&gt;
+ &lt;0032&gt; &lt;0940&gt;
+ &lt;0033&gt; &lt;fffd&gt;
+ &lt;0034&gt; &lt;094b&gt;
+ endbfchar
+ endcmap
+ CMapName currentdict /CMap defineresource pop
+ end
+ end
+</code></pre>
+
+<p>Let's print the <code>"Marathi:"</code> text as a sequence of hexadecimal characters:</p>
+
+<pre><code> $ hexdump&lt;&lt;&lt;"Marathi:"
+ 0000000 614d 6172 6874 3a69 000a
+ 0000009
+</code></pre>
+
+<p>When we reorder the character pairs then we get the following ASCII values:</p>
+
+<pre><code> 004d 0061 0072 0061 0074 0068 0069 003a
+</code></pre>
+
+<p>which is exactly what the following glyph sequence maps to:</p>
+
+<pre><code> &lt; 0001 0002 0003 0002 0004 0005 0006 0007 &gt;
+</code></pre>
+
+<p>So now we have an exact idea how the <em>glyph -> char</em> mapping is implemented.</p>
+
+<h1>Text &amp; glyphs</h1>
+
+<p>Here we can see the output where all texts are realized via
+the <a href="http://cairographics.org/manual/cairo-text.html#cairo-show-text-glyphs">cairo_show_text_glyphs()</a> call.</p>
+
+<p>This approach has best from both previous approaches. It provides a correct visual text representation
+as well as preserves the original text content.</p>
+
+<h2>PDF output</h2>
+
+<pre><code>  [hb-deva-text-glyphs.pdf](/docs/pdf/hb-deva-text-glyphs.pdf)
+</code></pre>
+
+<h2>Text output</h2>
+
+<pre><code>  $ pdftotext hb-deva-text-glyphs.pdf -
+  Marathi:
+  स्वागत आहे
+  आपले नाव काय आहे?
+  Hindi:
+  सवागत हैं
+  तुम्हारा नाम क्या है?
+  Sanskrit:
+  द + ् + ध + ् + र + ् + य = द्ध्र्य
+  पूर्वेभिर्र्षिभिरीड्यो
+</code></pre>
+
+<h2>PDF code inspection</h2>
+
+<p>First we have to initialize the cross-reference table dump:</p>
+
+<pre><code> $ ./initxref.sh hb-deva-text-glyphs.pdf
+</code></pre>
+
+<p>Now we can go down the object hierarchy exactly the same way as in the prevous case.
+The difference is that now the text content is slightly different:</p>
+
+<pre><code>  $ ./catobj.sh hb-deva-text-glyphs.pdf 3 529 59 | ./inflate.sh 
+  q
+  0 841.89 595 -841 re W n
+  0.784314 0.784314 0.392157 rg /a0 gs
+  50 791.89 500 -300 re f*
+  0 0 0 rg BT
+  24 0 0 24 50 766.237656 Tm
+  /f-0-0 1 Tf
+  &lt;00010002000300020004000500060007&gt;Tj
+  0 -1.339844 Td
+  &lt;0008&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0935093e&gt; &gt;&gt; BDC
+  &lt;0009000a&gt;Tj
+  EMC
+  &lt;000b000c000d000e&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09390947&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;0010&gt;]TJ
+  EMC
+  0 -1.339844 Td
+  &lt;000e0011&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09320947&gt; &gt;&gt; BDC
+  &lt;00120010&gt;Tj
+  EMC
+  &lt;000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0928093e&gt; &gt;&gt; BDC
+  &lt;0013000a&gt;Tj
+  EMC
+  &lt;0009000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0915093e&gt; &gt;&gt; BDC
+  &lt;0014000a&gt;Tj
+  EMC
+  &lt;0015000d000e&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff09390947&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;0010&gt;]TJ
+  EMC
+  [&lt;&gt;13&lt;0016&gt;]TJ
+  0 -1.339844 Td
+  &lt;001700060018001900060007&gt;Tj
+  0 -1.339844 Td
+  &lt;001a&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff0935093e&gt; &gt;&gt; BDC
+  &lt;0009000a&gt;Tj
+  EMC
+  &lt;000b000c000d&gt;Tj
+  /Span &lt;&lt; /ActualText &lt;feff093909480902&gt; &gt;&gt; BDC
+  [&lt;000f&gt;-13&lt;001b001c&gt;]TJ
+  EMC
+  /Span &lt;&lt; /ActualText &lt;feff09240941&gt; &gt;&gt; BDC
+  0 -1.339844 Td
+  ...
+</code></pre>
+
+<p>So we can distinguish the following new commands:</p>
+
+<ul>
+<li><code>BDC</code>/<code>EDC</code> ... begin/end marked content sequence</li>
+</ul>
+
+
+<p>So in this variant we can see that individual clusters of presentation glyphs are interleaved with
+<code>ActualText</code> spans. That is the case just for texts where it is necessary - e.g. The first line
+containing ascii text <code>"Marathi:"</code> is still encoded the same way as in the previous case containing
+just glyphs.</p>
+
+</div>
+
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>06 Jan 2009</span> &raquo; <a href="/articles/cooperative-linux-with-debian.html">Cooperative Linux step by step</a></li>
+    
+      <li><span>20 Apr 2013</span> &raquo; <a href="/articles/using-c-11-move-semantics-to-enhance-code-safety.html">Using C++11 move semantics to enhance code safety</a></li>
+    
+      <li><span>26 Mar 2009</span> &raquo; <a href="/articles/port-forwarding-remote-desktop.html">Port forwarding & Remote desktop connection (updated)</a></li>
+    
+  </ul>
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>Cooperative Linux step by step</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <div id="post">
+<h2>Cooperative Linux step by step</h2>
+<!--<span>Published: 2009-01-06 00:00:00 +0100</span>
+
+-->
+<blockquote><p>Note: this is just a slightly modified version of my <a href="http://filodej.blogspot.com/2008/06/cooperative-linux-with-debian.html">original BlogSpot post</a>.
+I have copied it here just to have some content to experiment with (test the rewrite from raw HTML to <a href="http://en.wikipedia.org/wiki/Markdown">MarkDown</a>).</p></blockquote>
+
+<h1>Introduction</h1>
+
+<p>This post provides a step by step tutorial how to download, install and configure <a href="http://en.wikipedia.org/wiki/Colinux">CoLinux</a>
+with <a href="http://en.wikipedia.org/wiki/Debian">Debian 4.0</a> file system image.
+Also the installation of <a href="http://en.wikipedia.org/wiki/GNOME">GNOME</a> desktop environment
+and <a href="http://en.wikipedia.org/wiki/NX_technology">NX server</a> is covered.
+As a result we get a graphic Linux environment cooperatively running on the Windows hosting system.
+It can be seen as an alternative to a conventional "dual boot" configuration - but with both systems running at the same time.</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s1600-h/06-gnome-session-gimp.jpg"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 320px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPMJynrivI/AAAAAAAACc8/HZNBWsmzPg4/s400/06-gnome-session-gimp.jpg" border="0" alt=""id="BLOGGER_PHOTO_ID_5288294856042187506" /></a></p>
+
+<h1>Info sources:</h1>
+
+<ul>
+<li><a href="http://www.colinux.org">CoLinux Homepage</a></li>
+<li><p><a href="http://colinux.wikia.com/wiki/Main_Page">CoLinux Wiki</a></p></li>
+<li><p><a href="http://sourceforge.net/project/shownotes.php?release_id=248895&amp;group_id=98788">Debian notes</a></p></li>
+<li><a href="http://sourceforge.net/project/showfiles.php?group_id=98788&amp;package_id=289363">Debian filesystem image</a></li>
+<li><a href="http://sourceforge.net/project/showfiles.php?group_id=98788">More available filesystem images</a></li>
+<li><a href="http://www.saltycrane.com/blog/2008/04/install-colinux-and-ubuntu-gutsy-on-win">Howto install coLinux (and Ubuntu Hardy) on Win XP</a></li>
+</ul>
+
+
+<h1>Download and installation</h1>
+
+<h2>CoLinux binary</h2>
+
+<p>You can download binary <a href="http://sourceforge.net/project/showfiles.php?group_id=98788&amp;package_id=107317">here</a>.</p>
+
+<p>In my case it was the <em>stable version 0.7.3 (kernel 2.6.22.18)</em> ... <a href="http://downloads.sourceforge.net/colinux/coLinux-0.7.3.exe?modtime=1212921944&amp;big_mirror=0">coLinux-0.7.3.exe</a></p>
+
+<p>(an alternative could be the <em>development version 8.0 (kernel 2.6.22.18)</em> ...
+<a href="http://www.colinux.org/snapshots/devel-coLinux-20081130.exe">devel-coLinux-20081130.exe</a>, see <a href="http://www.colinux.org/snapshots/">this page</a> for details).</p>
+
+<p>Selected components:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s1600-h/01-colinux-install1.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPHeVt09OI/AAAAAAAACbE/Q5BzCgtyt0Q/s400/01-colinux-install1.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289711502456034" /></a></p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s1600-h/01-colinux-install2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfK0rweI/AAAAAAAACbM/gTreHbvu8AM/s400/01-colinux-install2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289725758292450" /></a></p>
+
+<p>During the installation the <a href="http://www.winpcap.org/">WinPcap</a> (The Windows Packet Capture Library) is installed. It can be downloaded <a href="http://www.winpcap.org/install/">here</a>.</p>
+
+<p>I choose stable <a href="http://www.winpcap.org/install/bin/WinPcap_4_0_2.exe">WinPcap 4.0.2</a> (an alternative could be <a href="http://www.winpcap.org/install/bin/WinPcap_4_1_beta4.exe">WinPcap 4.1 beta4</a>).</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s1600-h/01-colinux-install3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfSDmLAI/AAAAAAAACbU/XbhNL-h8JFo/s400/01-colinux-install3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289727699889154" /></a></p>
+
+<p>We can download (some of) available filesystem images directly during the installation:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s1600-h/01-colinux-install4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 313px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHfXNdcgI/AAAAAAAACbc/ANu5gwzJKVw/s400/01-colinux-install4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289729083437570" /></a></p>
+
+<p>TAP network adapter is installed (dear Microsoft, sure we want to continue the installation ;-)</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s1600-h/01-colinux-install5.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 260px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPHgHbyDzI/AAAAAAAACbk/DrOqneZInOA/s400/01-colinux-install5.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288289742028410674" /></a></p>
+
+<p>Now the TAP adapter is installed (but not connected):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s1600-h/02-tap-adapter.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 334px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH6xKmdaI/AAAAAAAACbs/gM_iL4LFd_k/s400/02-tap-adapter.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290199907235234" /></a></p>
+
+<p>We have to configure the private IP address of the host system (windows):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s1600-h/02-tap-adapter2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 355px; height: 400px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7E2lOqI/AAAAAAAACb0/RUM_YgjylEQ/s400/02-tap-adapter2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290205191977634" /></a></p>
+
+<h2>Installation paths:</h2>
+
+<ul>
+<li>CoLinux binary: <em>c:\programs\coLinux</em></li>
+<li>Filesystem images: <em>c:\programs\coLinux\images</em></li>
+</ul>
+
+
+<h1>Configure (Windows side)</h1>
+
+<h2>Config file</h2>
+
+<p>We create a new configuration file (just modify the installed <em>example.conf</em>):</p>
+
+<pre><code>C:\&gt; cd programs\coLinux
+C:\programs\coLinux&gt; copy example.conf debian.conf
+    1 file(s) copied.
+C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Now we can specify root image, swap file and possibly other mount points and also define two ethernet devices -
+one for pcap bridge and second for TAP adapter:</p>
+
+<pre><code>...
+
+# File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cofs1=c:\
+cofs2=d:\
+
+# Swap device, should be an empty file with 128..512MB.
+cobd1="C:\programs\coLinux\images\swap_file.1gb"
+
+# Tell kernel the name of root device (mostly /dev/cobd0,
+# /dev/cobd/0 on Gentoo)
+# This parameter will be forward to Linux kernel.
+root=/dev/cobd0
+
+# Additional kernel parameters (ro = rootfs mount read only)
+ro
+
+# Initrd installs modules into the root file system.
+# Need only on first boot.
+initrd=initrd.gz
+
+# Maximal memory for linux guest
+#mem=64
+
+# Slirp for internet connection (outgoing)
+# Inside running coLinux configure eth0 with this static settings:
+# ipaddress 10.0.2.15   broadcast  10.0.2.255   netmask 255.255.255.0
+# gateway   10.0.2.2    nameserver 10.0.2.3
+#eth0=slirp
+
+# pcap bridge for internet connection (outgoing)
+eth0=pcap-bridge,"Local Area Connection",&lt;an-artificial-mac-address&gt;
+
+# Tuntap as private network between guest and host on second linux device
+eth1=tuntap
+
+# Setup for serial device
+#ttys0=COM1,"BAUD=115200 PARITY=n DATA=8 STOP=1 dtr=on rts=on"
+
+# Run an application on colinux start (Sample Xming, a Xserver)
+# exec0=C:\Programs\Xming\Xming.exe,":0 -clipboard -multiwindow -ac"
+</code></pre>
+
+<h2>Swap file</h2>
+
+<p>Also you have to create a swap file, <a href="http://colinux.wikia.com/wiki/HowtoCreateSwapFile">here</a> is how to create it,
+or if you are lazy like me, you can download one from <a href="http://gniarf.nerim.net/colinux/swap/">this site</a>
+(user <a href="http://colinux.wikia.com/wiki/User:Gniarf">Gniarf</a> provides also other interesting info).</p>
+
+<h1>Configure (Linux side)</h1>
+
+<p>Start colinux daemon:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe @debian.conf
+Cooperative Linux Daemon, 0.7.3
+Daemon compiled on Sat May 24 22:36:07 2008
+
+PID: 3268
+error 0x2 in execution
+error launching console
+daemon: exit code 8200c401
+daemon: error - CO_RC_ERROR_ERROR, line 49, file src/colinux/os/winnt/user/exec.c (16)
+</code></pre>
+
+<p>We did not install the generic console so we have to explicitly say we want to launch the NT console:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+</code></pre>
+
+<p>Login as root (a default password is <code>"root"</code>):</p>
+
+<pre><code>login as: root
+root@10.0.2.2's password:
+Linux debian 2.6.22.18-co-0.7.3 #1 PREEMPT Sat May 24 22:27:30 UTC 2008 i686
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+</code></pre>
+
+<p>Change the root password</p>
+
+<pre><code>deb# passwd
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+</code></pre>
+
+<h2>Network</h2>
+
+<p>For easy to use the network is pre-configured for "slirp":</p>
+
+<pre><code>deb# ifconfig
+eth0      Link encap:Ethernet  HWaddr 22:01:76:23:42:12
+          inet addr:10.0.2.15  Bcast:10.0.2.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:59 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:20682 (20.1 KiB)  TX bytes:0 (0.0 b)
+          Interrupt:2
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</code></pre>
+
+<p>We change it to dual-ethernet mode (one for uoutide world connection and other for private network between guest and host system):</p>
+
+<pre><code>deb# nano /etc/network/interfaces
+</code></pre>
+
+<p>Comment out the following:</p>
+
+<pre><code># The primary network interface (slirp)
+auto eth0
+iface eth0 inet static
+   address 10.0.2.15
+   broadcast 10.0.2.255
+   netmask 255.255.255.0
+   gateway 10.0.2.2
+</code></pre>
+
+<p>And replace it with following:</p>
+
+<pre><code># The primary network interface
+auto eth0
+iface eth0 inet dhcp
+</code></pre>
+
+<p>Then there is the following:</p>
+
+<pre><code># Second network (tap-win32)
+#auto eth1
+#iface eth1 inet static
+#   address 192.168.0.40
+#   netmask 255.255.255.0
+</code></pre>
+
+<p>... leave it as is (or remove it) and add the following:</p>
+
+<pre><code>auto eth1
+iface eth1 inet static
+   address 10.0.2.2
+   network 10.0.2.0
+   netmask 255.255.255.0
+   broadcast 10.0.2.255
+</code></pre>
+
+<p>Now save the file and reboot:</p>
+
+<pre><code>deb# &lt;b&gt;reboot&lt;/b&gt;
+...
+</code></pre>
+
+<p>We should see now on the Windows side that the TAP adapter is connected:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7TI2pAI/AAAAAAAACb8/itF6IfKkoHY/s1600-h/02-tap-adapter3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 334px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7TI2pAI/AAAAAAAACb8/itF6IfKkoHY/s400/02-tap-adapter3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290209026712578" /></a></p>
+
+<p>After we login to linux, we can examine the new network configuration:</p>
+
+<pre><code>deb# ifconfig
+eth0      Link encap:Ethernet  HWaddr &lt;i&gt;&amp;lt;an-artificial-mac-address&amp;gt;&lt;/i&gt;
+          inet addr:192.168.1.196  Bcast:192.168.1.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:17220 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:11031 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:24760203 (23.6 MiB)  TX bytes:770417 (752.3 KiB)
+          Interrupt:2
+
+eth1      Link encap:Ethernet  HWaddr 00:FF:68:B7:70:00
+          inet addr:10.0.2.2  Bcast:10.0.2.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:17 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:2238 (2.1 KiB)  TX bytes:0 (0.0 b)
+          Interrupt:2
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</code></pre>
+
+<h2>Packaging system</h2>
+
+<p>Now (we are connected to the internet) it is time to update the package system and upgrade installed packages:</p>
+
+<pre><code>deb# apt-get update
+...
+deb# apt-get upgrade
+The following packages will be upgraded:
+  bsdutils cpio debconf debconf-i18n debian-archive-keyring dpkg e2fslibs
+  e2fsprogs findutils initscripts libblkid1 libc6 libcomerr2 libgnutls13
+  libpam-modules libpam-runtime libpam0g libss2 libuuid1 lsb-base mount nano
+  perl-base sysv-rc sysvinit sysvinit-utils tar tzdata util-linux
+29 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+Need to get 12.3MB of archives.
+After unpacking 1786kB disk space will be freed.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<h2>Mount table</h2>
+
+<p>Now we can modify the mount table:</p>
+
+<pre><code>deb# nano /etc/fstab
+</code></pre>
+
+<p>... add the following if you want to mount C: and D: windows drives (we made it available as cofs devices in <code>debian.conf</code> file):</p>
+
+<pre><code>cofs1            /mnt/c         cofs    defaults,noatime  0      0
+cofs2            /mnt/d         cofs    defaults,noatime  0      0
+</code></pre>
+
+<p>Of course you can add anything you want, for example I wanted to make a cifs mount to a NAS directory:</p>
+
+<pre><code>//storage/filodej   /mnt/storage/filodej   cifs defaults,credentials=/etc/storage.smbpass 0 0
+</code></pre>
+
+<p>The <code>storage-filodej.smbpass</code> is a file readable just by root and containing a username and his password:</p>
+
+<pre><code>deb# cd /etc
+deb# echo "username=filodej" &amp;gt; storage.smbpass
+deb# chmod 600 storage.smbpass
+deb# echo "password=&lt;i&gt;&amp;lt;filodej-password&amp;gt;&lt;/i&gt;" &amp;gt;&amp;gt; storage.smbpass
+deb# cat storage.smbpass
+username=filodej
+password=&lt;filodej-password&gt;
+</code></pre>
+
+<p>Now we have to create corresponding mount point directories:</p>
+
+<pre><code>deb# cd /mnt
+deb# mkdir c
+deb# mkdir d
+deb# mkdir --parents storage/filodej
+</code></pre>
+
+<p>Test the mount table:</p>
+
+<pre><code>deb# mount -a&lt;
+mount: wrong fs type, bad option, bad superblock on //storage/filodej,
+       missing codepage or other error
+       In some cases useful info is found in syslog - try
+       dmesg | tail  or so
+</code></pre>
+
+<p>It seems I forgot to to install the <code>samba</code> file system:</p>
+
+<pre><code>deb# apt-get install smbfs
+
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  libkrb53 libpopt0 samba-common
+Suggested packages:
+  krb5-doc krb5-user smbclient
+The following NEW packages will be installed:
+  libkrb53 libpopt0 samba-common smbfs
+0 upgraded, 4 newly installed, 0 to remove and 0 not upgraded.
+Need to get 3232kB of archives.
+After unpacking 7827kB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>During the installation we have to specify the <em>Domain</em>/<em>Workgroup</em> name and decide whether
+to use WINS settings from DHCP (and install <code>dhcp3-client</code> package).</p>
+
+<p>Now the command:</p>
+
+<pre><code>deb# mount -a
+</code></pre>
+
+<p>... works as expected.</p>
+
+<h2>Install CoLinux as a Windows Service</h2>
+
+<p>We need to be able to access the running linux system somehow.
+I am using mostly the SSH for that purpose.</p>
+
+<p>First we have to install ssh daemon it on the linux system:</p>
+
+<pre><code>deb# apt-get install ssh
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  libedit2 libssl0.9.8 openssh-blacklist openssh-client openssh-server
+Suggested packages:
+  ssh-askpass xbase-clients rssh molly-guard
+The following NEW packages will be installed:
+  libedit2 libssl0.9.8 openssh-blacklist openssh-client openssh-server ssh
+0 upgraded, 6 newly installed, 0 to remove and 0 not upgraded.
+Need to get 5779kB of archives.
+After unpacking 12.7MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+Setting up ssh (4.3p2-9etch3) ...
+
+deb# eth0: duplicate address detected!
+</code></pre>
+
+<p>The 1duplicate address detected!` issue is described <a href="http://colinux.wikia.com/wiki/Network#DHCP_problems_.2F_duplicate_address">here</a>.</p>
+
+<p>I have associated the <code>&lt;an-artificial-mac-address&gt;</code> with static-DHCP assigned IP but the warning stil does persist.
+If anyone knows the solution, please, let me know!</p>
+
+<p>Anyway the ssh daemon is now up and running and we are able to connect to the linux system via ssh
+(on the host machine we can use either eth0 public IP or better the eth1 private IP).</p>
+
+<p>Now we are ready to create a windows service and run the colinux as a service.
+The detailed guide for the service creation can be seen <a href="http://colinux.wikia.com/wiki/Running_as_a_Service">here</a>.</p>
+
+<p>The following command does the job:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon @debian.conf --install-service "coLinux-Debian"
+Cooperative Linux Daemon, 0.7.3
+Daemon compiled on Sat May 24 22:36:07 2008
+
+daemon: installing service 'coLinux-Debian'
+daemon: service command line: "c:\programs\coLinux\colinux-daemon.exe" @debian.conf --run-service "coLinux-Debian"
+daemon: setting restart options
+daemon: service installed.
+</code></pre>
+
+<p>Now we can start colinux daemon as a service:</p>
+
+<pre><code>C:\programs\coLinux&gt; net start "coLinux-Debian"
+
+The coLinux-Debian service was started successfully.
+</code></pre>
+
+<h2>Linux administration</h2>
+
+<p><strong>Create a new user</strong>
+<a href="http://www.linuxheadquarters.com/howto/basic/adduser.shtml">[Add user howto]</a></p>
+
+<pre><code>deb# adduser --home /home/filodej --ingroup users filodej
+Adding user `filodej' ...
+Adding new user `filodej' (1001) with group `users' ...
+Creating home directory `/home/filodej' ...
+Copying files from `/etc/skel' ...
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+Changing the user information for filodej
+Enter the new value, or press ENTER for the default
+        Full Name []: Filodej
+        Room Number []:
+        Work Phone []:
+        Home Phone []:
+        Other []:
+Is the information correct? [y/N] y
+</code></pre>
+
+<p><strong>Install sudo</strong>
+<a href="http://linux.about.com/od/commands/l/blcmdl8_sudo.htm">[linux sudo command]</a></p>
+
+<pre><code>deb# apt-get install sudo
+Reading package lists... Done
+Building dependency tree... Done
+The following NEW packages will be installed:
+  sudo
+0 upgraded, 1 newly installed, 0 to remove and 36 not upgraded.
+Need to get 162kB of archives.
+After unpacking 406kB of additional disk space will be used.
+Get:1 http://ftp.debian.org etch/main sudo 1.6.8p12-4 [162kB]
+Fetched 162kB in 1s (95.8kB/s)
+Selecting previously deselected package sudo.
+(Reading database ... 25225 files and directories currently installed.)
+Unpacking sudo (from .../sudo_1.6.8p12-4_i386.deb) ...
+Setting up sudo (1.6.8p12-4) ...
+No /etc/sudoers found... creating one for you.
+</code></pre>
+
+<p>Let's look at the sudoers definition file:</p>
+
+<pre><code>deb# cat /etc/sudoers
+# /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+Defaults        env_reset
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root    ALL=(ALL) ALL
+</code></pre>
+
+<p>Now we can make the new user sudoer:</p>
+
+<pre><code>deb# visudo
+...
+</code></pre>
+
+<p>Let's look at the result:</p>
+
+<pre><code>deb# cat /etc/sudoers
+# /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+Defaults        env_reset
+
+# Host alias specification
+
+# User alias specification
+filodej    ALL=(ALL) ALL
+
+# Cmnd alias specification
+
+# User privilege specification
+root    ALL=(ALL) ALL
+</code></pre>
+
+<h2>Resize the root filesystem</h2>
+
+<p><a href="http://colinux.wikia.com/wiki/ExpandingRoot">[Expanding root filesystem howto]</a></p>
+
+<p>I decided to do it the <a href="http://colinux.wikia.com/wiki/ExpandingRoot#The_most_reliable_way_to_enlarge_the_root_partition">most reliable way</a>.</p>
+
+<p>First we look at the current filesystem:</p>
+
+<pre><code>deb# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             1031064    197876    780812  21% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44298800 111981488  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>Now we halt the system (if we are logged as a normal user, we have to use <code>sudo</code>):</p>
+
+<pre><code>deb# sudo halt
+...
+Broadcast message from root@debian (pts/2) (Wed Dec 10 05:11:48 2008):
+
+The system is going down for system halt NOW!
+</code></pre>
+
+<p>On windows we now go to the <code>images</code> directory:</p>
+
+<pre><code>C:\&gt; cd programs\coLinux\images
+
+C:\programs\coLinux\images&gt; dir
+ Volume in drive C has no label.
+ Volume Serial Number is F488-7A65
+
+ Directory of C:\programs\coLinux\images
+
+01/06/2009  21:49    &lt;DIR&gt;          .
+01/06/2009  21:49    &lt;DIR&gt;          ..
+01/06/2009  20:29     1,072,693,248 Debian-4.0r0-etch.ext3.1gb
+03/27/2008  19:59        40,795,971 Debian-clean.1gb.bz2
+12/22/2008  22:32     1,073,741,824 swap_file.1gb
+               3 File(s)  2,187,231,043 bytes
+               2 Dir(s)  124,332,199,936 bytes free
+</code></pre>
+
+<p>Now make a backup copy of the old filesystem:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; copy Debian-4.0r0-etch.ext3.1gb Debian-4.0r0-etch.ext3.1gb.tmp
+        1 file(s) copied.
+</code></pre>
+
+<p>Create a new (empty) file (e.g. 8GB in this case):</p>
+
+<pre><code>C:\programs\coLinux\images&gt; fsutil file createnew Debian-4.0r0-etch.ext3.8gb 8589934592
+File C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb is created
+</code></pre>
+
+<p>Let's list the images directory again:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; dir
+ Volume in drive C has no label.
+ Volume Serial Number is F488-7A65
+
+ Directory of C:\programs\coLinux\images
+
+01/06/2009  22:02    &lt;DIR&gt;          .
+01/06/2009  22:02    &lt;DIR&gt;          ..
+01/06/2009  13:07     1,072,693,248 Debian-4.0r0-etch.ext3.1gb
+01/06/2009  20:29     1,072,693,248 Debian-4.0r0-etch.ext3.1gb.tmp
+01/06/2009  22:02     8,589,934,592 Debian-4.0r0-etch.ext3.8gb
+03/27/2008  20:59        40,795,971 Debian-clean.1gb.bz2
+01/06/2009  22:02                 0 fsutil
+12/22/2008  22:32     1,073,741,824 swap_file.1gb
+               6 File(s) 11,849,858,883 bytes
+               2 Dir(s)  114,669,043,712 bytes free
+</code></pre>
+
+<p>Now we can modify the <code>debian.conf</code> configuration file as follows:</p>
+
+<pre><code>C:\programs\coLinux\images&gt; cd ..
+
+C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Add the two newly created file images as block devices:</p>
+
+<pre><code># File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cobd3="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb.tmp"
+cobd4="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb"
+cofs1=c:\
+cofs2=d:\
+</code></pre>
+
+<p>Now we can boot the colinux up and login as root:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+debian login: root
+Password:
+...
+deb#
+</code></pre>
+
+<p>Now we check if the the copy of the old filesystem is clean:</p>
+
+<pre><code>deb# e2fsck /dev/cobd3
+e2fsck 1.40-WIP (14-Nov-2006)
+/dev/cobd3: clean, 8967/131072 files, 53582/261888 blocks
+</code></pre>
+
+<p>If we now try to check the empty image, we (presumably) get the error:</p>
+
+<pre><code>deb# e2fsck /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Couldn't find ext2 superblock, trying backup blocks...
+e2fsck: Bad magic number in super-block while trying to open /dev/cobd4
+
+The superblock could not be read or does not describe a correct ext2
+filesystem.  If the device is valid and it really contains an ext2
+filesystem (and not swap or ufs or something else), then the superblock
+is corrupt, and you might try running e2fsck with an alternate superblock:
+e2fsck -b 8193 &lt;device&gt;
+</code></pre>
+
+<p>Let's copy the raw data from the old image to the new:</p>
+
+<pre><code>deb# dd if=/dev/cobd3 of=/dev/cobd4
+2095104+0 records in
+2095104+0 records out
+1072693248 bytes (1.1 GB) copied, 110.632 seconds, 9.7 MB/s
+</code></pre>
+
+<p>Now we can check the filesystem (<code>-f</code> will force checking even if filesystem is marked clean):</p>
+
+<pre><code>deb# e2fsck -f /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/cobd4: 8967/131072 files (0.6% non-contiguous), 53582/261888 blocks
+</code></pre>
+
+<p>Let's resize the filesystem from 1GB to 8GB:</p>
+
+<pre><code>deb# resize2fs -p /dev/cobd4
+resize2fs 1.40-WIP (14-Nov-2006)
+Resizing the filesystem on /dev/cobd4 to 2097152 (4k) blocks.
+Begin pass 1 (max = 56)
+Extending the inode table     XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+The filesystem on /dev/cobd4 is now 2097152 blocks long.
+</code></pre>
+
+<p>... and check it again:</p>
+
+<pre><code>deb# e2fsck -f /dev/cobd4
+e2fsck 1.40-WIP (14-Nov-2006)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/cobd4: 8967/1048576 files (0.6% non-contiguous), 82374/2097152 blocks
+</code></pre>
+
+<p>Now we are almost done and can halt the system:</p>
+
+<pre><code>deb# halt
+</code></pre>
+
+<p>In windows we can modify the <code>debian.conf</code> configuration file again:</p>
+
+<pre><code>C:\programs\coLinux&gt; notepad debian.conf
+</code></pre>
+
+<p>Remove the two newly block devices and change the root file system to the <code>Debian-4.0r0-etch.ext3.8gb</code>:</p>
+
+<pre><code># File contains the root file system.
+# Download and extract preconfigured file from SF "Images for 2.6".
+#cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.1gb"
+cobd0="C:\programs\coLinux\images\Debian-4.0r0-etch.ext3.8gb"
+cofs1=c:\
+cofs2=d:\
+</code></pre>
+
+<p>Now we can boot the colinux up and login:</p>
+
+<pre><code>C:\programs\coLinux&gt; colinux-daemon.exe -t nt @debian.conf
+...
+debian login: root
+Password:
+...
+deb#
+</code></pre>
+
+<p>Now we can inspect the free space we have:</p>
+
+<pre><code>deb# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             8256952    197876   7723532   3% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44281916 111998372  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>We are done for now, if everything goes fine we can possibly delete both the original image and its temporary copy.</p>
+
+<h1>GNOME installation</h1>
+
+<ul>
+<li><a href="http://ubuntuforums.org/showthread.php?t=648896">[HOWTO: Minimal Debian Install (GNOME/KDE)]</a></li>
+<li><a href="http://forums.debian.net/viewtopic.php?t=8614">[Installing x server]</a></li>
+</ul>
+
+
+<p>You have to decide what <a href="http://en.wikipedia.org/wiki/X_display_manager">display manager</a>
+and <a href="http://en.wikipedia.org/wiki/Desktop_environment">Desktop environment</a> to install.</p>
+
+<p>Following table shows the numbers of packages and download and intallation sizes for <em>core</em> and <em>full</em> variations of mainstream environments</p>
+
+<p><a href="http://en.wikipedia.org/wiki/GNOME_Display_Manager">GDM</a>/<a href="http://en.wikipedia.org/wiki/GNOME">GNOME</a> and
+<a href="http://en.wikipedia.org/wiki/KDE_Display_Manager">KDM</a>/<a href="http://en.wikipedia.org/wiki/KDE">KDE</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th align="left"> Variant           </th>
+<th align="right"> # packages </th>
+<th align="right"> Archive size </th>
+<th align="right"> Additional disk space </th>
+<th> </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td align="left"> xorg              </td>
+<td align="right"> 109        </td>
+<td align="right">   55 MB      </td>
+<td align="right"> 143 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + gnome-core </td>
+<td align="right"> 274        </td>
+<td align="right">  142 MB      </td>
+<td align="right"> 461 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + gnome      </td>
+<td align="right"> 472        </td>
+<td align="right">  300 MB      </td>
+<td align="right"> 931 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + kde-core   </td>
+<td align="right"> 208        </td>
+<td align="right">  120 MB      </td>
+<td align="right"> 318 MB                </td>
+<td> </td>
+</tr>
+<tr>
+<td></td>
+<td align="left"> xorg + kde        </td>
+<td align="right"> 543        </td>
+<td align="right">  312 MB      </td>
+<td align="right"> 830 MB                </td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+
+
+<p>I decided to try <em>full</em> GNOME installation:</p>
+
+<pre><code>deb# apt-get install xorg gnome
+...
+0 upgraded, 472 newly installed, 0 to remove and 0 not upgraded.
+Need to get 300MB of archives.
+After unpacking 931MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>... during the relatively lenthy process of the installation (on my machine it was 30 minutes for downloading
+and 15 minutes of installation) the <code>xserver-xorg</code> is configured and we are asked for desired screen resolutions.
+We are going to uninstall this package anyway so I do not think the settings we choose have any significant effect.</p>
+
+<p>After the installation is finished we can inspect the free space:</p>
+
+<pre><code>debian:~# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/cobd0             8256952   1430612   6490796  19% /
+tmpfs                   387996         0    387996   0% /lib/init/rw
+udev                     10240        16     10224   1% /dev
+tmpfs                   387996         0    387996   0% /dev/shm
+cofs1                156280288  44284428 111995860  29% /mnt/c
+cofs2                156280288    240400 156039888   1% /mnt/d
+//storage/filodej     10175328   2711828   7463500  27% /mnt/storage/filodej
+</code></pre>
+
+<p>... and see that (as expected) the amount of used space on the root filesystem actually risen by approximately 1.2 GB.</p>
+
+<h1>NX server</h1>
+
+<ul>
+<li><a href="http://en.wikipedia.org/wiki/NX_technology">[NX technology]</a></li>
+<li><a href="http://freenx.berlios.de/">[FreeNX]</a></li>
+<li><a href="http://www.gnome.org/~markmc/a-look-at-nomachine-nx.html">[A look at NoMachine NX]</a></li>
+<li><a href="http://www.nomachine.com/select-package.php?os=linux&amp;id=1">[NoMachine NX server free edition]</a></li>
+<li><a href="http://richbradshaw.wordpress.com/2007/11/28/installing-nomachine-nx-on-linux/">[Installing NoMachine NX server]</a></li>
+<li><a href="http://www.nomachine.com/ar/view.php?ar_id=AR03C00172">[NX keyboard shortcuts]</a></li>
+</ul>
+
+
+<p>The following is written about the licensing model of NX technology <a href="http://en.wikipedia.org/wiki/NX_technology#License">on wikipedia</a>:</p>
+
+<blockquote><p>NoMachine uses the GNU General Public License for the core NX technology, while at the same time offering
+non-free commercial NX server[2] and client products for Linux, Microsoft Windows, Solaris, Mac OS X and
+embedded systems.</p>
+
+<p>Due to the free software nature of NX, the FreeNX project was started in order to provide the wrapper scripts
+for the GPL NX libraries. FreeNX is developed and maintained by Fabian Franz.</p></blockquote>
+
+<h2>FreeNX server</h2>
+
+<p>At first I tried to install the FreeNX on my Laptop with Ubuntu installation but did not succeed.
+I used <a href="http://www.drtek.ca/freenx-server-ubuntu-hardy">this</a> and <a href="http://www.debianhelp.co.uk/freenx.htm">this</a> tutorial,
+everything went fine, the only thing that did not work was the shadow session from windows client.</p>
+
+<p>Every time I was connecting in shadow mode from windows client, <code>nxagent</code> on server side crashed:</p>
+
+<pre><code>Dec 19 17:08:23 notas kernel: [53641.720283] nxagent[5639]: segfault at 0000002c eip 080e9137 esp bff23b50 error 6
+</code></pre>
+
+<p>I tried to uninstall compiz (as <a href="https://bugzilla.redhat.com/show_bug.cgi?id=461284">someone</a> advised) but it did not help.
+Maybe it was due to the client/server version incompatibility (I have used newer version of NoMachine windows client).
+As a result I decided to try the NoMachine NX server (free edition).
+It is limited for only two users or two simultaneous connections to the server, but this limitation was not so significant for me.</p>
+
+<h2>NoMachine NX server</h2>
+
+<p>If you are using "full" GNOME installation then the first thing I would recommend to do is to install
+the <a href="http://home.swbell.net/berzerke/printing.html">CUPS print server</a>.
+The reasons are described <a href="#gnome-not-responding">here</a> (the issue was not necessarily connected with NX server,
+but also NX server complained when the CUPS was not installed):</p>
+
+<pre><code>deb# &lt;b&gt;apt-get install cupsys&lt;/b&gt;
+...
+</code></pre>
+
+<p>Now we can proceed to the actual installation.</p>
+
+<p>The NX Free Edition for Linux can be downloaded from <a href="http://www.nomachine.com/download-package.php?Prod_Id=359">this page</a>.
+The release I am using is <code>3.3.0-8</code>.</p>
+
+<p>For the installation of NX server I have followed <a href="http://www.linux-tip.net/cms/content/view/298/26/">this tutorial</a>.</p>
+
+<p>We will need three packages: <a href="http://64.34.161.181/download/3.3.0/Linux/nxclient_3.3.0-3_i386.deb">nxclient</a>, <a href="http://64.34.161.181/download/3.3.0/Linux/nxnode_3.3.0-3_i386.deb">nxnode</a> and <a href="wget%20http://64.34.161.181/download/3.3.0/Linux/FE/nxserver_3.3.0-8_i386.deb">nxserver</a>.</p>
+
+<pre><code>deb# cd /tmp
+deb# wget http://64.34.161.181/download/3.3.0/Linux/nxclient_3.3.0-3_i386.deb
+...
+Length: 3,859,966 (3.7M) [application/x-debian-package]
+...
+deb# wget http://64.34.161.181/download/3.3.0/Linux/nxnode_3.3.0-3_i386.deb
+...
+Length: 6,251,244 (6.0M) [application/x-debian-package]
+...
+deb# wget http://64.34.161.181/download/3.3.0/Linux/FE/nxserver_3.3.0-8_i386.deb
+...
+Length: 6,717,880 (6.4M) [application/x-debian-package]
+...
+</code></pre>
+
+<p>First we have to install the client (even if we are was not going to use it):</p>
+
+<pre><code>deb# dpkg -i nxclient_3.3.0-3_i386.deb
+Selecting previously deselected package nxclient.
+(Reading database ... 53454 files and directories currently installed.)
+Unpacking nxclient (from nxclient_3.3.0-3_i386.deb) ...
+Setting up nxclient (3.3.0-3) ...
+Showing file: /usr/NX/share/documents/client/cups-info
+
+ CUPS Printing Backend
+
+ The NX Client set-up procedure detected that your "IPP CUPS" printing
+ backend doesn't allow printing from the NX session. In order to have
+ printing support in your NX system, you need to set proper permissions
+ on the IPP backend. Please execute:
+
+   chmod 755 /usr/lib/cups/backend/ipp&lt;/i&gt;
+</code></pre>
+
+<p>Ok, let's do what we are told:</p>
+
+<pre><code>deb# chmod 755 /usr/lib/cups/backend/ipp
+</code></pre>
+
+<p>Then the nxnode has to be installed:</p>
+
+<pre><code>deb# dpkg -i nxnode_3.3.0-3_i386.deb
+Selecting previously deselected package nxnode.
+(Reading database ... 55884 files and directories currently installed.)
+Unpacking nxnode (from nxnode_3.3.0-3_i386.deb) ...
+Setting up nxnode (3.3.0-3) ...
+NX&gt; 700 Starting: install node operation at: Tue Jan 06 12:08:11 2009.
+NX&gt; 700 Autodetected system 'debian'.
+NX&gt; 700 Install log is '/usr/NX/var/log/install'.
+NX&gt; 700 Checking NX node configuration using /usr/NX/etc/node.cfg file.
+NX&gt; 700 Inspecting local CUPS environment.
+NX&gt; 700 Generating CUPS entries in: /usr/NX/etc/node.cfg.
+NX&gt; 700 Installation of version: 3.3.0-3 completed.
+NX&gt; 700 Showing file: /usr/NX/share/documents/node/cups-info
+
+ CUPS Printing Backend
+
+ The NX Node setup procedure could not detect your "CUPS"
+ installation: either CUPS  is not installed on your system
+ or it was installed in a non-standard path. CUPS is needed
+ in order to enable printing support in your NX system.
+ Please note that you can enable  printing support for your
+ NX system at any time; to do this make sure  that you have
+ CUPS installed then run:
+
+   /usr/NX/scripts/setup/nxnode --nxprintsetup &lt;pathname&gt;
+
+ to specify the location of the CUPS root path.
+</code></pre>
+
+<p>... the CUPS related warning is hopefully not there if you have the CUPS server installed.
+If the warning is still there, the solution is simple:</p>
+
+<pre><code>deb# /usr/NX/scripts/setup/nxnode --nxprintsetup
+NX&gt; 701 Starting: nxprintsetup operation at: Mon Jan 05 13:14:31 2009.
+NX&gt; 701 Inspecting local CUPS environment.
+NX&gt; 701 Generating CUPS entries in: /usr/NX/etc/node.cfg.
+NX&gt; 701 CUPS configuration updated.
+</code></pre>
+
+<p>The last step is to install the nxserver itself:</p>
+
+<pre><code>deb# dpkg -i nxserver_3.3.0-8_i386.deb
+Selecting previously deselected package nxserver.
+(Reading database ... 56081 files and directories currently installed.)
+Unpacking nxserver (from nxserver_3.3.0-8_i386.deb) ...
+Setting up nxserver (3.3.0-8) ...
+NX&gt; 700 Installing: server at: Tue Jan 06 12:09:23 2009.
+NX&gt; 700 Autodetected system: debian.
+NX&gt; 700 Install log is: /usr/NX/var/log/install.
+NX&gt; 700 Creating configuration file: /usr/NX/etc/server.cfg.
+NX&gt; 723 Cannot start NX statistics:
+NX&gt; 709 NX statistics are disabled for this server.
+NX&gt; 700 Version '3.3.0-8' installation completed.
+NX&gt; 700 Showing file: /usr/NX/share/documents/server/install-notices
+
+Server keys
+
+The initial login between client and server happens through a DSA key
+pair, i.e. a couple of specially generated cryptographic keys, called
+the private key and the public key, which allow you to establish a
+secure connection, by means of SSL encryption, between NX client and
+NX server.
+
+The public part of the key-pair is provided during the installation
+of the server, while the private part of the key-pair is distributed
+together with the NX Client. This ensures that each NX client is able
+to authenticate to the server and to start the procedure for autho-
+rizing the user and negotiating the session.
+
+If you want to create a virtual private network (VPN) instead, you
+need to generate a new DSA key-pair and distribute the private part
+of the key-pair to those NX clients you want authenticated to the NX
+server. More information on how to generate and distribute a new DSA
+key-pair is available at:
+
+http://www.nomachine.com/ar/view.php?ar_id=AR01C00126
+
+Creating Users
+
+NX is configured to allow access from any system user, as long as
+valid credentials are given to the user for the SSH login. NX pro-
+vides an alternative authorization method, allowing system admin-
+istrators to determine which users are given access to the NX fun-
+ctionalities. This works by implementing a separation between the
+system password and the NX password, so that, for example, it is
+possible to forbid remote access to the system by any other means
+except via NX and use the NX tools to implement effective accounting
+of the system resources used by the user, or to share NX passwords in
+an external database.
+
+To activate the NX user and password DBs, you will have to edit the
+NX server configuration file by hand or use the NX Server Manager
+Web tool available for download on the NoMachine Web site at:
+
+http://www.nomachine.com/download-manager.php
+
+Session Shadowing and Desktop Sharing
+
+The session shadowing functionality allows you to share NX sessions
+running on the node. The desktop sharing functionality instead, gives
+access to the native display of the X server as if you were in front
+of the monitor. By default you can access sessions in interactive mode
+and upon authorization of the session owner. You can modify this beha-
+viour by tuning the server configuration according to your needs, for
+example by allowing access to sessions in view-only mode, or connecting
+to either a suspended session or the local display via the Desktop
+Manager login window.
+
+Load Balancing
+
+NX Advanced Server provides support for multi-node capabilities and
+load balancing. In its current implementation, NX server can only
+manage accounts on the host machine, so to grant access to the node
+running remotely, you will need to create the user account directly
+on the remote node host by issuing the NX node commands as root user.
+You will also need to add the NX Server public DSA Key to the node to
+allow this server to connect to the node running on the remote host.
+
+Documentation
+
+For further information on how to manage the configuration of your
+NX system, please refer to the System Administrator's Guide available
+on the NoMachine Web site at:
+
+http://www.nomachine.com/documentation/admin-guide.php
+
+The NoMachine Team.
+
+NX&gt; 700 Bye.
+</code></pre>
+
+<h2>NX Client for Windows</h2>
+
+<p>NX Client for Windows can be downloaded from <a href="http://www.nomachine.com/download-client-windows.php">this page</a>.
+Its installation is straightforward.</p>
+
+<p><strong>NX Connection wizard</strong></p>
+
+<p>With help of the NX connection wizard we can create a new session (if we are on local machine we can use the private TAP ethernet address):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7_wTSRI/AAAAAAAACcE/ru6FVGNROGs/s1600-h/05-nx-conn-wizard1.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 307px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/SWPH7_wTSRI/AAAAAAAACcE/ru6FVGNROGs/s400/05-nx-conn-wizard1.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290221003327762" /></a></p>
+
+<p>Here we choose a desktop environment (Gnome in this case) and a resolution:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH8fhwRgI/AAAAAAAACcM/iFONDpZOT7s/s1600-h/05-nx-conn-wizard2.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 307px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPH8fhwRgI/AAAAAAAACcM/iFONDpZOT7s/s400/05-nx-conn-wizard2.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290229532247554" /></a></p>
+
+<p>In advanced configuration we can modify everything we setup so far and much more:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIOeN_7iI/AAAAAAAACcU/X9MBiGOYO44/s1600-h/05-nx-conn-wizard3.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 314px; height: 400px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIOeN_7iI/AAAAAAAACcU/X9MBiGOYO44/s400/05-nx-conn-wizard3.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290538418597410" /></a></p>
+
+<p>If we are on local machine I would recommend to disable image compression (icons and images then look better):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIORlmvMI/AAAAAAAACcc/N5kqDUU9Zyc/s1600-h/05-nx-conn-wizard4.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 299px; height: 400px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIORlmvMI/AAAAAAAACcc/N5kqDUU9Zyc/s400/05-nx-conn-wizard4.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290535027948738" /></a>
+We save the session settiongs and proceed to login dialog:
+<a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPFundoI/AAAAAAAACck/OSMDk_BlnHs/s1600-h/05-nx-conn-wizard5.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 330px; height: 217px;" src="http://1.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPFundoI/AAAAAAAACck/OSMDk_BlnHs/s400/05-nx-conn-wizard5.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290549024388738" /></a></p>
+
+<p>The first time we are asked to story the RSA fingerprint (there is SSH running under the covers):</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPeAX3iI/AAAAAAAACcs/tTseN1_5kqU/s1600-h/05-nx-conn-wizard6.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 338px; height: 192px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPeAX3iI/AAAAAAAACcs/tTseN1_5kqU/s400/05-nx-conn-wizard6.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290555541315106" /></a></p>
+
+<p>Now we are succesfully connected to a new Gnome session:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPvkrWTI/AAAAAAAACc0/sca666CNV_4/s1600-h/06-gnome-session.jpg"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 320px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWPIPvkrWTI/AAAAAAAACc0/sca666CNV_4/s400/06-gnome-session.jpg" border="0" alt=""id="BLOGGER_PHOTO_ID_5288290560256989490" /></a></p>
+
+<h2>Issues</h2>
+
+<p><em>*X server start failure at boot time</em></p>
+
+<p>When we reboot from the console we realize that X server is (unsuccesfully) started during the boot process:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWQDuhh6OPI/AAAAAAAACdE/UgerA40AF2Q/s1600-h/03-no-x-server.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 207px;" src="http://3.bp.blogspot.com/_xFBIBcRhwFQ/SWQDuhh6OPI/AAAAAAAACdE/UgerA40AF2Q/s400/03-no-x-server.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5288355960249268466" /></a></p>
+
+<p>Actually we do not need xserver running on the coLinux side, we are going to connect via the NX server
+or use an X server running on the Windows side. As a solution we can uninstall the unnecessary <code>gdm</code> and <code>xserver-xorg</code>.</p>
+
+<p>I admit that this install/uninstall approach seems weird, but currently I do not know a better solution,
+when I tried to just install the <code>gnome</code> without <code>xorg</code> the nxclient connection did not succeed.
+If someone with better knowledge of GNOME/X server/NX server dependencies knows a better approach,
+please, let me know.</p>
+
+<p>Anyway, let's remove the GDM for now:</p>
+
+<pre><code>deb# apt-get remove gdm
+Reading package lists... Done
+Building dependency tree... Done
+The following packages will be REMOVED:
+  fast-user-switch-applet gdm gdm-themes gnome gnome-desktop-environment
+0 upgraded, 0 newly installed, 5 to remove and 0 not upgraded.
+Need to get 0B of archives.
+After unpacking 17.4MB disk space will be freed.
+Do you want to continue [Y/n]? Y
+(Reading database ... 52440 files and directories currently installed.)
+Removing gnome ...
+Removing gnome-desktop-environment ...
+Removing fast-user-switch-applet ...
+Removing gdm-themes ...
+Removing gdm ...
+Stopping GNOME Display Manager: gdm.
+</code></pre>
+
+<p>... and also the xserver:</p>
+
+<pre><code>deb# apt-get remove xserver-xorg
+Reading package lists... Done
+Building dependency tree... Done
+The following packages will be REMOVED:
+  xorg xserver-xorg xserver-xorg-core xserver-xorg-input-all
+  xserver-xorg-input-evdev xserver-xorg-input-kbd xserver-xorg-input-mouse
+  xserver-xorg-input-synaptics xserver-xorg-video-all xserver-xorg-video-apm
+  xserver-xorg-video-ark xserver-xorg-video-ati xserver-xorg-video-chips
+  xserver-xorg-video-cirrus xserver-xorg-video-cyrix xserver-xorg-video-dummy
+  xserver-xorg-video-fbdev xserver-xorg-video-glint xserver-xorg-video-i128
+  xserver-xorg-video-i740 xserver-xorg-video-i810 xserver-xorg-video-imstt
+  xserver-xorg-video-mga xserver-xorg-video-neomagic
+  xserver-xorg-video-newport xserver-xorg-video-nsc xserver-xorg-video-nv
+  xserver-xorg-video-rendition xserver-xorg-video-s3
+  xserver-xorg-video-s3virge xserver-xorg-video-savage
+  xserver-xorg-video-siliconmotion xserver-xorg-video-sis
+  xserver-xorg-video-sisusb xserver-xorg-video-tdfx xserver-xorg-video-tga
+  xserver-xorg-video-trident xserver-xorg-video-tseng xserver-xorg-video-v4l
+  xserver-xorg-video-vesa xserver-xorg-video-vga xserver-xorg-video-via
+  xserver-xorg-video-vmware xserver-xorg-video-voodoo
+0 upgraded, 0 newly installed, 44 to remove and 0 not upgraded.
+Need to get 0B of archives.
+After unpacking 19.3MB disk space will be freed.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>...and reboot to make sure the boot-up startx problem is gone.</p>
+
+<p><strong>Screensaver draining the CPU</strong></p>
+
+<p>The default GNOME screensaver <em>"Floating Debian"</em> was relatively CPU greedy.
+I disabled it and choose the <em>"Blank screen"</em> (<em>Desktop -> Preferences -> Screensaver</em>).</p>
+
+<p><a name="gnome-not-responding"></a>
+<em>Gnome stopped responding</em></p>
+
+<p>Initially I ran the GNOME and had not the CUPS server installed.
+Everything went fine but after few days a problem emerged.
+When I logged in desktop environment after some time
+(typically couple dozens of seconds) it stopped responding.</p>
+
+<p>When I tried to start gnome session directly from console (using <a href="http://en.wikipedia.org/wiki/Xming">XMing server</a>),
+there was the same problem, but fortunately the following warning appeared on the console just about the same time
+the desktop stopped responding:</p>
+
+<pre><code>deb# gnome-session
+...
+** (gnome-cups-icon:6107): WARNING **: Could not start the printer tray icon, because the CUPS server could not be contacted.
+</code></pre>
+
+<p>The issue is very similar to <a href="https://answers.launchpad.net/ubuntu/+source/xorg/+question/52189">this (unresolved) one</a>.</p>
+
+<p>It is likely that the issue is not connected with NX server, but it is a coincidence that also the NX server
+installation complained about the fact that the CUPS server was not installed.</p>
+
+<p>As a solution I decided to install the CUPS server:</p>
+
+<pre><code>deb# apt-get install cupsys
+Reading package lists... Done
+Building dependency tree... Done
+The following extra packages will be installed:
+  cupsys-common libslp1 poppler-utils
+Suggested packages:
+  cupsys-bsd cupsys-driver-gutenprint cupsys-driver-gimpprint
+  foomatic-filters-ppds xpdf-korean xpdf-japanese xpdf-chinese-traditional
+  xpdf-chinese-simplified cups-pdf hplip slpd openslp-doc
+Recommended packages:
+  cupsys-client smbclient foomatic-filters
+The following NEW packages will be installed:
+  cupsys cupsys-common libslp1 poppler-utils
+0 upgraded, 4 newly installed, 0 to remove and 0 not upgraded.
+Need to get 2604kB of archives.
+After unpacking 12.1MB of additional disk space will be used.
+Do you want to continue [Y/n]? Y
+...
+</code></pre>
+
+<p>The installation complained about non-multicasting kernel, but hopefully it will not be a big problem:</p>
+
+<pre><code>To reduce network traffic use a IP multicast enabled kernel
+
+The kernel version that you are currently running does not appear to     
+support IP multicast. OpenSLP will continue to work even without
+multicast support in the kernel by using broadcasts. However, broadcasts 
+are less efficient on the network, so please consider upgrading to a
+multicast enabled kernel.
+</code></pre>
+
+<p><strong>Missing fonts</strong></p>
+
+<p>When I run emacs the following error appeared:</p>
+
+<pre><code>deb# emacs
+Warning: Cannot convert string "-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-*" to type FontStruct
+Warning: Cannot convert string "-*-helvetica-medium-r-*--*-120-*-*-*-*-iso8859-1" to type FontStruct
+</code></pre>
+
+<p>... and the emacs application looked as follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Sconc2T6NpI/AAAAAAAACz0/gecPBude3lU/s1600-h/emacs-fonts.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 346px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Sconc2T6NpI/AAAAAAAACz0/gecPBude3lU/s400/emacs-fonts.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5317105686633133714" /></a></p>
+
+<p>The XOrg configuration seemed ok:</p>
+
+<pre><code>deb# cat /etc/X11/xorg.conf | grep FontPath
+        FontPath        "/usr/share/fonts/X11/misc"
+        FontPath        "/usr/share/fonts/X11/cyrillic"
+        FontPath        "/usr/share/fonts/X11/100dpi/:unscaled"
+        FontPath        "/usr/share/fonts/X11/75dpi/:unscaled"
+        FontPath        "/usr/share/fonts/X11/Type1"
+        FontPath        "/usr/share/fonts/X11/100dpi"
+        FontPath        "/usr/share/fonts/X11/75dpi"
+        FontPath        "/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType"
+</code></pre>
+
+<p>... the font paths really exist and contain the corresponding fonts:</p>
+
+<pre><code>deb# find /usr/share/fonts/X11/ -name *helv*
+/usr/share/fonts/X11/100dpi/helvB08.pcf.gz
+/usr/share/fonts/X11/100dpi/helvB10.pcf.gz
+/usr/share/fonts/X11/100dpi/helvB12.pcf.gz
+...
+</code></pre>
+
+<p>Really, there were some fonts matching the font name patterns:</p>
+
+<pre><code>deb# xlsfonts -fn '-*-helvetica-medium-r-*-*-*-120-*-*-*-*-iso8859-1'
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-0-iso8859-1
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-0-iso8859-1
+-adobe-helvetica-medium-r-normal--12-120-75-75-p-67-iso8859-1
+-adobe-helvetica-medium-r-normal--17-120-100-100-p-88-iso8859-1
+deb# xlsfonts -fn '-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-*'
+-adobe-courier-medium-r-normal--12-120-75-75-m-0-iso8859-1
+-adobe-courier-medium-r-normal--12-120-75-75-m-0-iso8859-1
+-adobe-courier-medium-r-normal--12-120-75-75-m-70-iso8859-1
+-adobe-courier-medium-r-normal--17-120-100-100-m-100-iso8859-1
+</code></pre>
+
+<p>Finally the solution (or at least workaround, since I initially thought it should not be necessary)
+was to download the additional fonts for nxclient (windows side) from
+the <a href="http://www.nomachine.com/download-client-windows.php">NoMachine site</a>.
+It helped in my case, although I don't fully understand why it was necessary, see the<br/>
+note from the <em>NoMachine</em> site:</p>
+
+<blockquote><p>NOTE: The additional fonts are only needed when running very old Unix applications,
+requiring the use of client-side fonts. All recent Unix applications use fonts stored
+on the server, that are fully supported by NX.</i></p></blockquote>
+
+<p><strong>Microsoft TrueType fonts</strong></p>
+
+<p>With default settings some websites (like <a href="http://www.reddit.com">Reddit</a> render in fonts without antialiasing.
+The page with such fonts looks like follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Su6iDHzJjbI/AAAAAAAADWk/hmJMS0XOg4g/s1600-h/reddit-alias.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 336px;" src="http://2.bp.blogspot.com/_xFBIBcRhwFQ/Su6iDHzJjbI/AAAAAAAADWk/hmJMS0XOg4g/s400/reddit-alias.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5399431177780694450" /></a></p>
+
+<p>In font mapper settings you can probably do many things about it, but I am not expert in this area.
+What worked for me was to install the fonts I am used to - the <a href="http://packages.debian.org/lenny/msttcorefonts">msttcorefonts package</a>.</p>
+
+<p>In order to be able to install the fonts, you have to extend your <code>sources.list</code> to provide access to non-free packages.
+For detailed explanation see <a href="http://www.marksanborn.net/linux/installing-microsoft-fonts-msttcorefonts-on-debian-linux/">this post</a>.</p>
+
+<p>After the successful installation the same site looks as follows:</p>
+
+<p><a onblur="try {parent.deselectBloggerImageGracefully();} catch(e) {}" href="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Su6jsWU-8GI/AAAAAAAADWs/KLGd2rIR9JY/s1600-h/reddit-noalias.png"><img style="display:block; margin:0px auto 10px; text-align:center;cursor:pointer; cursor:hand;width: 400px; height: 327px;" src="http://4.bp.blogspot.com/_xFBIBcRhwFQ/Su6jsWU-8GI/AAAAAAAADWs/KLGd2rIR9JY/s400/reddit-noalias.png" border="0" alt=""id="BLOGGER_PHOTO_ID_5399432985566965858" /></a></p>
+
+</div>
+
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>26 Mar 2009</span> &raquo; <a href="/articles/port-forwarding-remote-desktop.html">Port forwarding & Remote desktop connection (updated)</a></li>
+    
+      <li><span>19 Nov 2009</span> &raquo; <a href="/articles/print-server.html">WMU-6500FS - Print server installation</a></li>
+    
+      <li><span>20 Apr 2013</span> &raquo; <a href="/articles/using-c-11-move-semantics-to-enhance-code-safety.html">Using C++11 move semantics to enhance code safety</a></li>
+    
+  </ul>
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>

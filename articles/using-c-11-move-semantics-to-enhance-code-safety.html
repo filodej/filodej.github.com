@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>Using C++11 move semantics to enhance code safety</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <div id="post">
+<h2>Using C++11 move semantics to enhance code safety</h2>
+<!--<span>Published: 2013-04-20 00:00:00 +0200</span>
+
+-->
+<h1>Overview</h1>
+
+<p>Let's say we have a fairly large codebase. The code is relatively portable
+and besides <em>Windows</em> (MSVC 2010) and <em>GNU/Linux</em> (GCC 4.3) it is regularly
+built with several target platform's native compilers (<em>AIX</em>, <em>HP-UX</em>, <em>Solaris</em>).
+There is an effort to move to <em>GCC</em> on all Unix systems but it does not seem
+to be the case in a forseeable future.</p>
+
+<p>As we have a decent <a href="http://en.wikipedia.org/wiki/Continuous_integration">Continue integration</a>
+environment like <a href="http://jenkins-ci.org">Jenkins</a> or <a href="http://buildbot.net/">Buildbot</a>
+there is no problem to use lets say <em>Clang 3.2</em> or <em>GCC 4.8</em> just for early error
+diagnostics as far as the source code remains to work on the old compilers as well.</p>
+
+<p>The question we want to address is:</p>
+
+<blockquote><p> Can we utilize the new <a href="http://en.wikipedia.org/wiki/C%2B%2B11">C++11 standard</a>
+ in order to make the source code better but still buildable with old compilers?</p></blockquote>
+
+<h1>Conversion helper</h1>
+
+<p>We have the following conversion helper, which generically encapsulates all kinds
+of unicode text conversions (<a href="http://en.wikipedia.org/wiki/UTF-8">UTF-8</a> <code>char</code>,
+<a href="http://en.wikipedia.org/wiki/UTF-16">UTF-16</a> <code>wchar_t</code>,
+UTF-16 <code>char16_t</code>, <a href="http://en.wikipedia.org/wiki/UTF-32">UTF-32</a> <code>char32_t</code>, ...).</p>
+
+<p>The actual conversion is realized in the <code>do_conversion()</code> helper and is not really
+important in this context.</p>
+
+<p>What is important is that we have some generic <code>string</code> definition which looks something
+like following:</p>
+
+<pre><code class="cpp">#if ( XSTRING_FORMAT == 8 )
+typedef char XChar;
+#elif ( XSTRING_FORMAT == 16 )
+typedef char16_t XChar;
+#elif ( XSTRING_FORMAT == -16 )
+typedef wchar_t XChar;
+#elif ( XSTRING_FORMAT == 32 )
+typedef char32_t XChar;
+#endif
+
+typedef std::basic_string&lt;XChar&gt; XString;
+</code></pre>
+
+
+<p>... and then in many places, when we are interfacing with an API accepting a particular
+string format, we have code like this:</p>
+
+<pre><code class="cpp">// retrieve our internal string 
+XString const&amp; str( ... ); 
+// pass the string to an external API (convert it if necessary)
+std::cout &lt;&lt; "Output: " &lt;&lt; convert&lt;char&gt;( str ).c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>The helper class called <code>convert</code> ought to be clever enough to incur a minimal overhead
+in case there is no need for a conversion.</p>
+
+<p>Such helper class can look something like this:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+class convert
+{
+public:
+    typedef CharT char_type;
+    typedef size_t size_type;
+    typedef std::basic_string&lt;char_type&gt; string_type;
+    typedef converter this_type;
+
+    // no conversion performed =&gt; no overhead 
+    convert( string_type const&amp; text )
+        : m_text( text.c_str() )
+        , m_length( text.size() )
+    {
+    }
+
+    template &lt;typename T&gt;
+    convert( std::basic_string&lt;T&gt; const&amp; text )
+        : m_buffer( do_conversion&lt;CharT&gt;( text.c_str(), text.size() ) )
+        , m_text( m_buffer.c_str() )
+        , m_length( m_buffer.size() )
+    {
+    }
+
+    CharT const* c_str() const
+    { 
+        return m_text; 
+    }
+
+    size_type length() const { return m_length; }
+
+private:  // make this class noncopyable
+    convert( this_type const&amp; );
+    this_type const&amp; operator=( this_type const&amp; );
+
+private:
+    string_type const m_buffer;
+    char_type const* const m_text;
+    size_type const m_length;
+};
+</code></pre>
+
+
+<p>This implementation works relatively well as far as no one violates a single rule:</p>
+
+<blockquote><p> Lifetime of the <code>convert&lt;&gt;</code> object may never exceed lifetime of the <code>string</code> it is converting</p></blockquote>
+
+<p>The problem is demonstrated in the following code:</p>
+
+<pre><code class="cpp">// case #1: converting an L-value in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 ).c_str() &lt;&lt; std::endl;
+
+// case #2: converting an R-value (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+
+// case #3: converting an L-value with a named converter&lt;&gt; is OK
+convert&lt;char&gt; const t1( s1 );
+std::cout &lt;&lt; "This is ok: " &lt;&lt; t1.c_str() &lt;&lt; std::endl;
+
+// case #4: converting an R-value (temporary) with a named converter&lt;&gt; is BAD
+convert&lt;char&gt; const t12( s1 + s2 );
+std::cout &lt;&lt; "Oooops!: " &lt;&lt; t12.c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>The question is:</p>
+
+<blockquote><p> Are we able to distinguish between the four cases demonstrated above and make sure
+ the <strong>#4</strong> never appears in our codebase?</p></blockquote>
+
+<h1><em>C++11</em> at our service</h1>
+
+<h2>Fixed version</h2>
+
+<p>When we start compiling the source with <em>C++11</em> language version (<code>-std=c++11</code> compiler setting)
+many new opportunities open up for us.</p>
+
+<p>If we add the following two constructor overloads we have fully functional solution
+even for case <strong>#4</strong>.</p>
+
+<pre><code class="cpp">convert( string_type&amp;&amp; text )
+    : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+    , m_text( m_buffer.c_str() )
+    , m_length( text.size() )
+{
+}
+
+template &lt;class T&gt;
+convert( std::basic_string&lt;T&gt;&amp;&amp; text )
+    : convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+{
+}
+</code></pre>
+
+
+<p>The two new constructors are called anytime a temporary <code>string</code> is passed to the <code>convert&lt;&gt;</code>.
+If there is no conversion to be done, we just grab the guts of the temporary <code>string</code>
+and so prolong its lifetime as long as we need it.</p>
+
+<p>The problem is that now we are outside the scope of <em>C++03</em> and so this code does not work
+on the old compilers. So this approach helps us on new compilers but does not compile
+on the old ones - not quite what we are looking for.</p>
+
+<h2>Input R/L valuedness</h2>
+
+<p>What if we make those two constructors <em>private</em> instead and so make sure there is
+no one using the conversion this way?</p>
+
+<p>Then we have only "nice" clients and we are safe on all other platforms thanks to
+the fact that we just make a <em>sanity check build</em> once a day or so.</p>
+
+<pre><code class="cpp">#ifdef HAS_MOVE_SEMANTICS
+
+#ifdef CHECK_BACKWARD_COMPATIBILITY
+private:
+#endif // CHECK_BACKWARD_COMPATIBILITY
+
+    convert( string_type&amp;&amp; text )
+        : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+        , m_text( m_buffer.c_str() )
+        , m_length( text.size() )
+    {
+        // case #2 or #4
+    }
+
+    template &lt;class T&gt;
+    convert( std::basic_string&lt;T&gt;&amp;&amp; text )
+        : convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+    {
+        // case #2 or #4
+    }
+#endif // HAS_MOVE_SEMANTICS
+</code></pre>
+
+
+<p>The problem is that this approach disables all clients trying to convert <em>R-value</em> string;
+even ones doing that in a single expression (one-liner conversions).</p>
+
+<p>The case <strong>#2</strong> (which is perfectly OK) now fails to compile:</p>
+
+<pre><code class="cpp">// case 2: converting an R-value (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>What we need is a way to distinguish between case <strong>#2</strong> and case <strong>#4</strong>.
+It is not the <em>R-valuedness</em> of input what is wrong, it is <em>the combination</em>
+of input <code>string</code> <em>R-valuedness</em> and <em>L-valuedness</em> of the <code>convert&lt;&gt;</code> object.</p>
+
+<h2>Converter R/L valuedness</h2>
+
+<p>Now we have to distinguish cases when the <code>convert&lt;&gt;</code> class is instantiated
+as a one-liner (<em>R-value</em>) from cases when it is created as a named variable (<em>L-value</em>).</p>
+
+<p>What we are basically looking for is a similar overload for the <code>convert&lt;&gt;</code> constructor
+like we have for the input <code>string</code> value.</p>
+
+<p>If <em>C++</em> had explicit <code>this</code> parameter instead of implicit (like <em>Python</em> has with its first
+method argument, conventionally called <code>self</code>), then we could try something like this:</p>
+
+<pre><code class="cpp">convert( this_type&amp;&amp; self, string_type const&amp; text ) { /* case #1 - OK * / }
+
+convert( this_type&amp;&amp; self, string_type&amp;&amp; text )  { /* case #2 - OK * / }
+
+convert( this_type const&amp; self, string_type const&amp; text )  { /* case #3 - OK * / }
+
+convert( this_type const&amp; self, string_type&amp;&amp; text )
+{
+    // case #4 - ERR
+    static_assert( 0, "Temporary values must be converted as a one-liner" );
+}
+</code></pre>
+
+
+<p>Actually - as there are well known <a href="http://en.wikipedia.org/wiki/Const-correctness">cv-qualifiers</a>
+- newly there are also <em>ref-qualifiers</em> (see paper
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm">Extending move semantics to *this</a> ).</p>
+
+<pre><code class="cpp">convert( string_type const&amp; text ) &amp;&amp; { /* case #1 - OK * / }
+
+convert( string_type&amp;&amp; text ) &amp;&amp; { /* case #2 - OK * / }
+
+convert( string_type const&amp; text ) &amp; { /* case #3 - OK * / }
+
+convert( string_type&amp;&amp; text ) &amp;
+{
+    // case #4 - ERR
+    static_assert( 0, "Temporary values must be converted as a one-liner" );
+}
+</code></pre>
+
+
+<p>The problem is that <em>ref-qualifiers</em> cannot be applied to constructors
+(neither to desctructors, static methods), just to ordinary methods.</p>
+
+<p>So what about the <code>convert&lt;&gt;::c_str()</code> method?</p>
+
+<p>The following code works perfectly OK (I have tested it on <em>Clang 3.0</em>,
+it should work since <em>Clang 2.9</em> according to the
+<a href="http://clang.llvm.org/cxx_status.html">Clang C++11 status page</a> and since
+<em>GCC 4.8.1</em> according to the <a href="http://gcc.gnu.org/projects/cxx0x.html">GCC C++11 status page</a> ).</p>
+
+<pre><code class="cpp">CharT const* c_str() const&amp;
+{ 
+    // case #3 or #4
+    return m_text; 
+}
+
+CharT const* c_str() &amp;&amp;
+{ 
+    // case #1 or #2
+    return m_text; 
+}
+</code></pre>
+
+
+<p>The problem here is that we lost track of the input <em>R/L-valuedness</em> and so cannot
+distinguish between case <strong>#3</strong> (OK) and <strong>#4</strong> (Error).</p>
+
+<p>So what we need is to transfer the input valuedness from the constructor to the
+<code>c_str()</code> method. We could definitely store it in a variable and assert in runtime,
+but it is not what we really want.</p>
+
+<p>We want to find a way to fail early - in compile time.</p>
+
+<p>Unfortunately I did not find a full solution for this problem.
+As the <em>R/L valuedness</em> of a <code>convert&lt;&gt;</code> instance  is not known in
+scope of its <em>constructor</em> we are not able to combine the two necessary
+bits of information (<em>R/L-valuedness</em> of both <em>input value</em> and <em>convert&lt;></em>)
+in one place.</p>
+
+<p>Thankfully there is a not so bad workaroung for this problem though.</p>
+
+<h2><code>convert&lt;&gt;</code> vs. <code>coverter&lt;&gt;</code></h2>
+
+<p>It requires a change in client code, but fortunately it is quite mechanical change
+which can be easily automated.</p>
+
+<p>First we rename the <code>convert&lt;&gt;</code> template class to <code>converter&lt;&gt;</code>.</p>
+
+<p>Then we create a perfectly forwarding template function called convert&lt;> as follows:</p>
+
+<pre><code class="cpp">template &lt;typename CharT, typename T&gt;
+inline converter&lt;CharT&gt; convert( T&amp;&amp; text )
+{
+    return converter&lt;CharT&gt;( std::forward&lt;T&gt;( text ) ); 
+} 
+</code></pre>
+
+
+<p>To the original version of the <code>convert&lt;&gt;</code> (now its name is <code>converter&lt;&gt;</code>) we add the
+following code:</p>
+
+<pre><code class="cpp">#ifdef HAS_MOVE_SEMANTICS
+#ifdef CHECK_BACKWARD_COMPATIBILITY
+private:
+    // Following constructors are not allowed before we have C++11 support 
+    // on all target platforms
+    // (r-value string conversion must be performed within the same expression)
+    template &lt;typename CT, typename T&gt;
+    friend converter&lt;CT&gt; convert( T&amp;&amp; text );
+#endif
+
+    converter( this_type&amp;&amp; rhs )
+        : m_buffer( std::move( rhs.m_buffer ) )
+        , m_text( std::move( rhs.m_text ) )
+        , m_length( std::move( rhs.m_length ) )
+    {
+    }
+
+    converter( string_type&amp;&amp; text )
+        : m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
+        , m_text( m_buffer.c_str() )
+        , m_length( text.size() )
+    {
+    }
+
+    template &lt;class T&gt;
+    converter( std::basic_string&lt;T&gt;&amp;&amp; text )
+        : converter( text ) // we are intentionally not moving (we convert anyway)
+    {
+    }
+
+#endif // HAS_MOVE_SEMANTICS
+</code></pre>
+
+
+<p>To be able to return the <code>converter&lt;&gt;</code> out of the factory <code>convert&lt;&gt;</code> function
+it was necessary to make the <em>non-copyable</em> <code>converter&lt;&gt;</code> <em>movable</em> (add <em>move
+constructor</em>).</p>
+
+<p>Now we are back in the version with <em>private constructors</em> accepting <em>R-value</em> input
+but now we have a back door helper function called <code>convert&lt;&gt;</code> which we can use for
+one-line conversions.</p>
+
+<p>Now it is necessary to replace all the named (<em>L-value</em>) <code>convert&lt;&gt;</code> instances with
+<code>converter&lt;&gt;</code> in client code while keeping all one-line conversions intact.</p>
+
+<pre><code class="cpp">// case #1: converting an lvalue in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 ).c_str() &lt;&lt; std::endl;
+
+// case #2: converting an rvalue (temporary) in a single expression is OK
+std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str() &lt;&lt; std::endl;
+
+// case #3: converting an lvalue with a named converter&lt;&gt; is OK
+converter&lt;char&gt; const t1( s1 );
+std::cout &lt;&lt; "This is ok: " &lt;&lt; t1.c_str() &lt;&lt; std::endl;
+
+// case #4: converting an rvalue (temporary) with a named converter&lt;&gt; is BAD
+converter&lt;char&gt; const t12( s1 + s2 );
+std::cout &lt;&lt; "Oooops!: " &lt;&lt; t12.c_str() &lt;&lt; std::endl;
+</code></pre>
+
+
+<p>Now if we compile the source code with the <code>CHECK_BACKWARD_COMPATIBILITY</code>
+macro defined we get the following compiler error for the case <strong>#4</strong>:</p>
+
+<p><em>Clang 3.0</em>:</p>
+
+<pre><code>movement.cpp:38:24: error: calling a private constructor of class 'converter&lt;char&gt;'
+        converter&lt;char&gt; const t12( s1 + s2 );
+                              ^
+</code></pre>
+
+<p><em>GCC 4.7</em>:</p>
+
+<pre><code>././convert_impl.hpp:65:2: error: ‘converter&lt;CharT&gt;::converter(std::basic_string&lt;T&gt;&amp;&amp;) 
+    [with T = wchar_t; CharT = char]’ is private
+movement.cpp:38:37: error: within this context
+</code></pre>
+
+<p>The last step is to make the <code>convert&lt;&gt;</code> and <code>converter&lt;&gt;</code> work the same way
+on the old compilers.</p>
+
+<p>For that we would love to use <em>template alias</em>:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+using convert = converter&lt;CharT&gt;;
+</code></pre>
+
+
+<p>... but unfortunately it was not available before the <em>C++11</em>.</p>
+
+<p>What remains as a workaround is either the following ugly preprocessor hack:</p>
+
+<pre><code class="cpp">#define convert converter
+</code></pre>
+
+
+<p>... or we can use inheritance:</p>
+
+<pre><code class="cpp">template &lt;typename CharT&gt;
+class convert 
+    : public converter&lt;CharT&gt;
+{
+    typedef converter&lt;CharT&gt; base_type;
+public:
+    using typename base_type::char_type;
+    using typename base_type::size_type;
+    using typename base_type::string_type;
+
+    convert( string_type const&amp; text )
+        : base_type( text )
+    {
+    }
+
+    template &lt;typename T&gt;
+    convert( std::basic_string&lt;T&gt; const&amp; text )
+        : base_type( text )
+    {
+    }
+};
+</code></pre>
+
+
+<p>Unfortunately it is not trivial as we need to bridge <em>constructors</em>
+and <em>local typedefs</em> as can be seen above.</p>
+
+<h1>Conclusion</h1>
+
+<p>The <em>C++11 standard</em> greatly extends what the language is able to express.
+Especially the move semantics opens many opportunities for various kinds
+of optimizations.</p>
+
+<p>As we seen this new expresivness is valuable not only for performance but
+also for correctness of the source code.</p>
+
+<p>And even though you cannot use the <em>new standard</em> directly in production
+(e.g. due to some historical reasons) you can still utilize the new language
+features as a kind of <a href="http://en.wikipedia.org/wiki/Static_program_analysis">static code analysis</a>.</p>
+
+<h2>Source code</h2>
+
+<p>The source code for this experiment is available <a href="http://github.com/filodej/move-semantics">here</a>.</p>
+
+<p>I was able to build it succesfully with <em>GCC 4.7.2</em> and <em>Clang 3.0</em>.</p>
+
+</div>
+
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>06 Jan 2009</span> &raquo; <a href="/articles/cooperative-linux-with-debian.html">Cooperative Linux step by step</a></li>
+    
+      <li><span>26 Mar 2009</span> &raquo; <a href="/articles/port-forwarding-remote-desktop.html">Port forwarding & Remote desktop connection (updated)</a></li>
+    
+      <li><span>09 Mar 2012</span> &raquo; <a href="/articles/pdf-stream-anatomy.html">PDF stream content anatomy</a></li>
+    
+  </ul>
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>HP-UX crash analysis</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <div id="post">
+<h2>HP-UX crash analysis</h2>
+<!--<span>Published: 2011-10-05 00:00:00 +0200</span>
+
+-->
+<h1>Overview</h1>
+
+<p>  <em>32-bit HP-UX (PA-RISC) aCC compiler bug</em></p>
+
+<p>  The <em>+hpxstd98</em> compiler option causes that the compiler generates incorrect assembly code
+  for a perfectly correct source code.</p>
+
+<h1>Compiler option description</h1>
+
+<pre><code>  +hpxstd98      Turns on  a new, standard compliant compilation mode.
+                 This option provides a rich set of diagnostics, better
+                 support for templates (including support for template-
+                 template parameters) and is independent of other
+                 compilation options.  Objects created using this option
+                 are completely binary compatible with those created
+                 without using this option and also with the objects
+                 created using earlier versions of the compiler.
+</code></pre>
+
+<p>This option is necessary for building the <a href="http://www.boost.org/">Boost C++ libraries</a>
+(see <a href="http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801?ciid=4a083a7373f021103a7373f02110275d6e10RCRD#faq-boost-lib">HP aC++ FAQ</a>).</p>
+
+<h2>Compiler version</h2>
+
+<p>If we check the compiler version:</p>
+
+<pre><code>$ aCC --version         
+aCC: HP ANSI C++ B3910B A.03.80
+</code></pre>
+
+<p>... we can see that the version of the compiler is <code>A.03.80</code>, but currently there are two more recent versions available: <code>A.03.85</code> and <code>A.03.90</code>
+(see <a href="http://h21007.www2.hp.com/portal/site/dspp/menuitem.863c3e4cbcdc3f3515b49c108973a801/?ciid=2645dec4c7563110VgnVCM100000275d6e10RCRD#b11.23pa">HP aC++ release history for PA-RISC servers</a></p>
+
+<h1>Steps to reproduce the problem</h1>
+
+<h2>Prepare the program</h2>
+
+<ul>
+<li><p>Download the following simple c++ file demonstrating the problem:</p>
+
+<p>  <a href="https://github.com/filodej/filodej.github.com/blob/master/code/hp/crashtest.cxx">crashtest.cxx</a></p>
+
+<p>... the program is standard C++ code and is succesfully compiled with the <a href="http://www.comeaucomputing.com/tryitout/">Comeau compiler test drive</a>.</p></li>
+</ul>
+
+
+<h2>The correct version</h2>
+
+<ul>
+<li><p>Compile the file with the aCC compiler</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC crashtest.cxx
+</code></pre></li>
+<li><p>Run the program (without and with a command line argument):</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ ./a.out          
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+OK!
+
+autotest@hpux7:~/bld/crash_test$ ./a.out 1
+Heap allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+OK!
+</code></pre>
+
+<p>... the program runs without a problem</p></li>
+</ul>
+
+
+<h2>The incorrect version</h2>
+
+<ul>
+<li><p>Compile the program again, now with the /+hpxstd98/ compiler flag</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 crashtest.cxx
+</code></pre></li>
+<li><p>Run the newly compiled program (without and with a command line argument):</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ ./a.out  
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+Segmentation fault
+
+autotest@hpux7:~/bld/crash_test$ ./a.out 1                  
+Heap allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+Bus error
+</code></pre></li>
+</ul>
+
+
+<h1>Analysis</h1>
+
+<h2>Debug the program</h2>
+
+<ul>
+<li><p>Disable the printf commands</p>
+
+<p>Uncomment the following statement:</p>
+
+<pre><code>#define printf(TXT)
+</code></pre></li>
+<li><p>Compile the program with debug info</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ aCC +hpxstd98 -g0 crashtest.cxx
+</code></pre></li>
+<li><p>Run the debuger</p>
+
+<pre><code>autotest@hpux7:~/bld/crash_test$ gdb a.out            
+HP gdb 6.1 for PA-RISC 1.1 or 2.0 (narrow), HP-UX 11i 
+and target hppa1.1-hp-hpux11.00.
+Copyright 1986 - 2009 Free Software Foundation, Inc.
+Hewlett-Packard Wildebeest 6.1 (based on GDB) is covered by the
+GNU General Public License. Type "show copying" to see the conditions to
+change it and/or distribute copies. Type "show warranty" for warranty/support.
+..
+</code></pre></li>
+<li><p>Run the program</p>
+
+<pre><code>(gdb) r
+Starting program: /home/autotest/bld/crash_test/a.out 
+Stack allocated Noop
+m_state.noop().noop();
+m_state.m_noop.noop();
+
+Program received signal SIGSEGV, Segmentation fault
+  si_code: 0 - SEGV_UNKNOWN - Unknown Error.
+0x1864 in $$dyncall_external_20+0 ()
+</code></pre></li>
+<li><p>See where we are</p>
+
+<pre><code>(gdb) where
+#0  0x1864 in $$dyncall_external_20+0 ()
+#1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
+</code></pre></li>
+<li><p>Look at the source code</p>
+
+<pre><code>(gdb) list
+41                      m_state.m_noop.noop(); // crash :-(
+42                      printf("OK!\n");
+43              }
+44      private:
+45          NoopState const&amp; m_state;
+46      };
+47      
+48      int main(int argc, char* argv[])
+49      {
+50              Noop stack_noop;
+</code></pre></li>
+<li><p>Look at the disassembly</p>
+
+<pre><code>(gdb) disass
+Dump of assembler code for function $$dyncall_external_20:
+0x1864 &lt;$$dyncall_external_20&gt;: ldw 2(%r22),%r19
+0x1868 &lt;$$dyncall_external_20+0x4&gt;:     ldw -2(%r22),%r22
+0x186c &lt;$$dyncall_external_20+0x8&gt;:     bve (%r22)
+0x1870 &lt;$$dyncall_external_20+0xc&gt;:     stw %rp,-0x18(%sp)
+</code></pre></li>
+<li><p>Go one level up</p>
+
+<pre><code>(gdb) up
+#1  0x2eb4 in main (argc=1, argv=0x7f7f08f4) at crashtest.cxx:64
+64              test.crash();
+</code></pre></li>
+<li><p>Show disassembly again</p>
+
+<pre><code>(gdb) disass
+Dump of assembler code for function main:
+;;; File: crashtest.cxx
+;;;  49 {
+
+...
+
+;;;  62         CrashTest test( state );
+0x2e58 &lt;main+0x78&gt;:     ldo -0x38(%sp),%r20
+0x2e5c &lt;main+0x7c&gt;:     stw %r20,-0x34(%sp)
+;;;  64         test.crash();
+0x2e60 &lt;main+0x80&gt;:     ldil L'0x3000,%r21
+0x2e64 &lt;main+0x84&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2e68 &lt;main+0x88&gt;:     ldo 0x528(%r21),%r26
+0x2e6c &lt;main+0x8c&gt;:     ldw -0x34(%sp),%r22
+0x2e70 &lt;main+0x90&gt;:     ldw 0(%r22),%r1
+0x2e74 &lt;main+0x94&gt;:     copy %r1,%r26
+0x2e78 &lt;main+0x98&gt;:     ldw 0(%r26),%r31
+0x2e7c &lt;main+0x9c&gt;:     ldo 0x10(%r31),%r19
+0x2e80 &lt;main+0xa0&gt;:     ldw 0(%r19),%r22
+0x2e84 &lt;main+0xa4&gt;:     b,l 0x1864 &lt;$$dyncall_external_20&gt;,%r31
+0x2e88 &lt;main+0xa8&gt;:     copy %r31,%rp
+0x2e8c &lt;main+0xac&gt;:     ldil L'0x3000,%r20
+0x2e90 &lt;main+0xb0&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2e94 &lt;main+0xb4&gt;:     ldo 0x540(%r20),%r26
+0x2e98 &lt;main+0xb8&gt;:     ldw -0x34(%sp),%r21
+0x2e9c &lt;main+0xbc&gt;:     ldw 0(%r21),%r22
+0x2ea0 &lt;main+0xc0&gt;:     ldo 0x10(%r22),%r1
+0x2ea4 &lt;main+0xc4&gt;:     ldw 0(%r1),%r22
+0x2ea8 &lt;main+0xc8&gt;:     copy %r21,%r26
+0x2eac &lt;main+0xcc&gt;:     b,l 0x1864 &lt;$$dyncall_external_20&gt;,%r31
+0x2eb0 &lt;main+0xd0&gt;:     copy %r31,%rp
+0x2eb4 &lt;main+0xd4&gt;:     ldil L'0x3000,%r31
+0x2eb8 &lt;main+0xd8&gt;:     call 0x2dc0 &lt;printf&gt;
+0x2ebc &lt;main+0xdc&gt;:     ldo 0x4e8(%r31),%r26
+0x2ec0 &lt;main+0xe0&gt;:     ldi 0,%ret0
+;;;  65 }
+0x2ec4 &lt;main+0xe4&gt;:     copy %ret0,%ret0
+0x2ec8 &lt;main+0xe8&gt;:     ldw -0x54(%sp),%rp
+0x2ecc &lt;main+0xec&gt;:     ret 
+End of assembler dump.
+</code></pre></li>
+</ul>
+
+
+<h2>Analyse the disassembly</h2>
+
+<ul>
+<li><p>Dump the disassembly of both compiled versions (without and with the compiler flag) and compare those for differences</p></li>
+<li><p>Cut the address prefixes (addresses always differ):</p>
+
+<pre><code>$ cat /tmp/disass-crash.txt | cut -d':' -f2 &gt; /tmp/disass-crash-cut.txt
+$ cat /tmp/disass-ok.txt | cut -d':' -f2 &gt; /tmp/disass-ok-cut.txt
+</code></pre></li>
+<li><p>Show the assembly diff</p>
+
+<pre><code>$ diff -y /tmp/disass-{ok,crash}-cut.txt
+(gdb) disass main                                       (gdb) disass main
+
+  crashtest.cxx                                           crashtest.cxx
+ ;;;  49 {                                               ;;;  49 {
+      stw %rp,-0x14(%sp)                                      stw %rp,-0x14(%sp)
+      ldo 0x40(%sp),%sp                                       ldo 0x40(%sp),%sp
+      stw %r26,-0x64(%sp)                                     stw %r26,-0x64(%sp)
+      call 0x2d98 &lt;_main&gt;                                     call 0x2d98 &lt;_main&gt;
+      stw %r25,-0x68(%sp)                                     stw %r25,-0x68(%sp)
+ ;;;  50         Noop stack_noop;                        ;;;  50         Noop stack_noop;
+      addil L'-0x800,%dp,%r1                                  addil L'-0x800,%dp,%r1
+      ldo 0x6c8(%r1),%r1                                      ldo 0x6c8(%r1),%r1
+      stw %r1,-0x40(%sp)                                      stw %r1,-0x40(%sp)
+ ;;;  51         Noop const* noop(&amp;stack_noop);          ;;;  51         Noop const* noop(&amp;stack_noop);
+      ldo -0x40(%sp),%r31                                     ldo -0x40(%sp),%r31
+      stw %r31,-0x3c(%sp)                                     stw %r31,-0x3c(%sp)
+ ;;;  53         if ( argc == 2 )                        ;;;  53         if ( argc == 2 )
+      ldw -0x64(%sp),%r19                                     ldw -0x64(%sp),%r19
+      cmpib,&lt;&gt;,n 2,%r19,0x2e10 &lt;main+0x58&gt;                    cmpib,&lt;&gt;,n 2,%r19,0x2e10 &lt;main+0x58&gt;
+ ;;;  56                 noop = new Noop;              &lt;
+      ldi 0,%r20                                              ldi 0,%r20
+      call 0x2da8 &lt;operator new(unsigned long)&gt;               call 0x2da8 &lt;operator new(unsigned long)&gt;
+      ldi 4,%r26                                              ldi 4,%r26
+      copy %ret0,%r21                                         copy %ret0,%r21
+      cmpib,=,n 0,%r21,0x2e08 &lt;main+0x50&gt;                     cmpib,=,n 0,%r21,0x2e08 &lt;main+0x50&gt;
+      addil L'-0x800,%dp,%r1                                  addil L'-0x800,%dp,%r1
+      ldo 0x6c8(%r1),%r22                                     ldo 0x6c8(%r1),%r22
+      stw %r22,0(%r21)                                        stw %r22,0(%r21)
+      b 0x2e10 &lt;main+0x58&gt;                             | ;;;  56                 noop = new Noop;
+      stw %r21,-0x3c(%sp)                                     stw %r21,-0x3c(%sp)
+ ;;;  61         NoopState state( *noop );               ;;;  61         NoopState state( *noop );
+                                                       &gt;      b,n 0x2e10 &lt;main+0x58&gt;
+      ldw -0x3c(%sp),%r1                                      ldw -0x3c(%sp),%r1
+      stw %r1,-0x38(%sp)                                      stw %r1,-0x38(%sp)
+ ;;;  62         CrashTest test( state );                ;;;  62         CrashTest test( state );
+      ldo -0x38(%sp),%r31                                     ldo -0x38(%sp),%r31
+      stw %r31,-0x34(%sp)                                     stw %r31,-0x34(%sp)
+ ;;;  64         test.crash();                           ;;;  64         test.crash();
+      ldw -0x34(%sp),%r19                                     ldw -0x34(%sp),%r19
+      ldw 0(%r19),%r20                                        ldw 0(%r19),%r20
+      copy %r20,%r26                                          copy %r20,%r26
+      ldw 0(%r26),%r21                                        ldw 0(%r26),%r21
+      ldo 0x10(%r21),%r22                                     ldo 0x10(%r21),%r22
+      ldw 0(%r22),%r22                                        ldw 0(%r22),%r22
+      b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+      copy %r31,%rp                                           copy %r31,%rp
+      ldw -0x34(%sp),%r1                                      ldw -0x34(%sp),%r1
+      ldw 0(%r1),%r31                                         ldw 0(%r1),%r31
+      ldw 0(%r31),%r19                                 |      ldo 0x10(%r31),%r19
+      ldo 0x10(%r19),%r20                              |      ldw 0(%r19),%r22
+      ldw 0(%r20),%r22                                 |      copy %r1,%r26
+      copy %r31,%r26                                   &lt;
+      b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+      copy %r31,%rp                                           copy %r31,%rp
+      ldi 0,%ret0                                             ldi 0,%ret0
+ ;;;  65 }                                               ;;;  65 }
+      copy %ret0,%ret0                                        copy %ret0,%ret0
+      ldw -0x54(%sp),%rp                                      ldw -0x54(%sp),%rp
+      ret                                                     ret 
+ End of assembler dump.                                  End of assembler dump.
+</code></pre>
+
+<p>The version of the call realized over two levels of accessed members:</p>
+
+<pre><code>m_state.m_noop.noop(); // crash :-(
+</code></pre>
+
+<p>... was generated differently.</p>
+
+<p>On the other hand the code generated for the first version of the call (withe reference retrieved wia the noop() getter):</p>
+
+<pre><code>m_state.noop().noop(); // no crash :-)
+</code></pre></li>
+</ul>
+
+
+<p> ... was generated correctly and identically in both cases.</p>
+
+<ul>
+<li><p>Look at the interesting part</p>
+
+<pre><code>copy %r31,%rp                                           copy %r31,%rp
+ldw -0x34(%sp),%r1                                      ldw -0x34(%sp),%r1
+ldw 0(%r1),%r31                                         ldw 0(%r1),%r31
+ldw 0(%r31),%r19                                 |      ldo 0x10(%r31),%r19
+ldo 0x10(%r19),%r20                              |      ldw 0(%r19),%r22
+ldw 0(%r20),%r22                                 |      copy %r1,%r26
+copy %r31,%r26                                   &lt;
+b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31                 b,l 0x1850 &lt;$$dyncall_external_20&gt;,%r31
+copy %r31,%rp                                           copy %r31,%rp
+ldi 0,%ret0                                             ldi 0,%ret0
+</code></pre></li>
+<li><p>Pseudocode</p>
+
+<p>I have no experience with the PA-RISC instruction set so the following is just a wild guess.</p>
+
+<p>We try to translate the sequence of the instructions to a more readable pseudocode:</p>
+
+<p>The correct version:</p>
+
+<pre><code> r31 = r1[0]
+ r19 = r31[0]
+ r20 = r19[0x10]
+ r22 = r20[0]
+ r26 = r31
+</code></pre>
+
+<p>The incorrect version:</p>
+
+<pre><code> r31 = r1[0];
+ r19 = r31[0x10];
+ r22 = r19[0];
+ r26 = r1;
+</code></pre></li>
+<li><p>Substitute the registers</p>
+
+<p>When we simplify the sequence by substituting the registers for their corresponding values,
+we clearly see the differences:</p>
+
+<p>The correct version:</p>
+
+<pre><code> r22 = *(r1[0][0][0x10]);
+ r26 = *r1;
+</code></pre>
+
+<p>The incorrect version:</p>
+
+<pre><code> r22 = *(r1[0x10][0]);
+ r26 = r1;
+</code></pre></li>
+</ul>
+
+
+<h2>Conclusion</h2>
+
+<p>   It seems that the two registers above contain:</p>
+
+<ul>
+<li> r22 ... virtual function address</li>
+<li> r26 ... object address</li>
+</ul>
+
+
+<p>   There are two <code>r1</code> register dereferences with the offset 0 bytes, those probably correspond to the code:</p>
+
+<pre><code>this-&gt;m_state.m_noop
+</code></pre>
+
+<p>   ... then there is one more dereference with offset 16 bytes, it seemingly correspond to a retrieval of the <em>Noop vtable</em>
+   and then there is one final dereference corresponding to the <em>vtable lookup</em>.</p>
+
+<p>   The virtual call itself is realized as so called <em>long call</em> with the BLE followed by the COPY instruction
+   (see section 2.5.5 of the <a href="http://ftp.parisc-linux.org/docs/arch/rad_11_0_32.pdf">The 32-bit PA-RISC Run-time Architecture Document</a>).</p>
+
+<p>   For some reason when the <em>+hpxstd98</em> compiler option is used the generated code differs considerably,
+   some of the dereferences are completely missing.</p>
+
+<p>   This causes <code>Bus Error</code> in some cases, <code>Segmentation fault</code> in other.
+   That seem to depend on the address of the <em>Noop</em> object
+   (in some cases the <code>LDW</code> instruction complains about its alignment which causes <code>SIGBUS</code> signal just before the <code>SEGFAULT</code>).</p>
+
+</div>
+
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>06 Jan 2009</span> &raquo; <a href="/articles/cooperative-linux-with-debian.html">Cooperative Linux step by step</a></li>
+    
+      <li><span>20 Apr 2013</span> &raquo; <a href="/articles/using-c-11-move-semantics-to-enhance-code-safety.html">Using C++11 move semantics to enhance code safety</a></li>
+    
+      <li><span>26 Jun 2008</span> &raquo; <a href="/articles/aix-crash-analysis.html">AIX crash analysis</a></li>
+    
+  </ul>
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>
