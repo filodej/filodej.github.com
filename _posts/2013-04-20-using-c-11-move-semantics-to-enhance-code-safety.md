@@ -52,9 +52,12 @@ like following:
 	typedef std::basic_string<XChar> XString;
 
 ... and then in many places, when we are interfacing with an API accepting a particular 
-`string` format have code like this:
+string format, we have code like this:
 
-	std::cout << "This is ok: " << convert<char>( s1 ).c_str() << std::endl;
+	// retrieve our internal string 
+	XString const& str( ... ); 
+	// pass the string to an external API (convert it if necessary)
+	std::cout << "Output: " << convert<char>( str ).c_str() << std::endl;
 
 The helper class called `convert` ought to be clever enough to incur a minimal overhead
 in case there is no need for a conversion. 
