@@ -179,7 +179,7 @@ on the old compilers.
 So this approach is perfectly functional and completely safe with new compilers but unfortunately 
 does not compile on the old ones - not quite what we were looking for.
 
-Input R/L valuedness
+Input R/L-valuedness
 --------------------
 
 What if we make those two constructors *private* instead and so make sure there is 
@@ -226,7 +226,7 @@ What we need is a way to distinguish between case **#2** and case **#4**.
 It is not the *R-valuedness* of input what is wrong, it is *the combination*
 of input `string` *R-valuedness* and *L-valuedness* of the `convert<>` object.
 
-Converter R/L valuedness
+Converter R/L-valuedness
 ------------------------
 
 Now we have to distinguish cases when the `convert<>` class is instantiated
@@ -239,11 +239,11 @@ If *C++* had explicit `this` parameter instead of implicit (like *Python* has wi
 method argument, conventionally called `self`), then we could try something like this:
 
 ```cpp
-	convert( this_type&& self, string_type const& text ) { /* case #1 - OK * / }
+	convert( this_type&& self, string_type const& text ) { /* case #1 - OK */ }
 
-	convert( this_type&& self, string_type&& text )  { /* case #2 - OK * / }
+	convert( this_type&& self, string_type&& text )  { /* case #2 - OK */ }
 
-	convert( this_type const& self, string_type const& text )  { /* case #3 - OK * / }
+	convert( this_type const& self, string_type const& text )  { /* case #3 - OK */ }
 
 	convert( this_type const& self, string_type&& text )
 	{
@@ -257,11 +257,11 @@ Actually - as there are well known [cv-qualifiers](http://en.wikipedia.org/wiki/
 [Extending move semantics to *this](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm) ).
 
 ```cpp
-	convert( string_type const& text ) && { /* case #1 - OK * / }
+	convert( string_type const& text ) && { /* case #1 - OK */ }
 
-	convert( string_type&& text ) && { /* case #2 - OK * / }
+	convert( string_type&& text ) && { /* case #2 - OK */ }
 
-	convert( string_type const& text ) & { /* case #3 - OK * / }
+	convert( string_type const& text ) & { /* case #3 - OK */ }
 
 	convert( string_type&& text ) &
 	{
