@@ -80,26 +80,23 @@ Such helper class can look something like this:
 		typedef std::basic_string<char_type> string_type;
 		typedef converter this_type;
 		
-		// no conversion performed => no overhead 
+		// neither allocation nor conversion performed => no overhead 
 		convert( string_type const& text )
 			: m_text( text.c_str() )
 			, m_length( text.size() )
 		{
 		}
 		
+		// here we allocate a new bufer and perform the necessary conversion
 		template <typename T>
 		convert( std::basic_string<T> const& text )
-			: m_buffer( do_conversion<CharT>( text.c_str(), text.size() ) )
+			: m_buffer( do_conversion( text ) )
 			, m_text( m_buffer.c_str() )
 			, m_length( m_buffer.size() )
 		{
 		}
 		
-		CharT const* c_str() const
-		{ 
-			return m_text; 
-		}
-		
+		char_type const* c_str() const { return m_text; }
 		size_type length() const { return m_length; }
 
 	private:  // make this class noncopyable
@@ -107,9 +104,9 @@ Such helper class can look something like this:
 		this_type const& operator=( this_type const& );
 		
 	private:
-		string_type const m_buffer;
-		char_type const* const m_text;
-		size_type const m_length;
+		string_type const m_buffer;    // temporary buffer used for conversion
+		char_type const* const m_text; // pointer to zero terminated output string
+		size_type const m_length;      // size of the output string
 	};
 ```
 
@@ -149,31 +146,38 @@ Fixed version
 When we start compiling the source with *C++11* language version (`-std=c++11` compiler setting)
 many new opportunities open up for us. 
 
-If we add the following two constructor overloads we have fully functional solution
+If we add the following two constructor overloads then we have fully functional solution
 even for case **#4**.
 
 ```cpp
 	convert( string_type&& text )
 		: m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
 		, m_text( m_buffer.c_str() )
-		, m_length( text.size() )
+		, m_length( m_buffer.size() )
 	{
 	}
 
  	template <class T>
 	convert( std::basic_string<T>&& text )
-		: convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+		: convert( text ) // here we cannot move, we have to do the conversion anyway
 	{
 	}
 ```
 
-The two new constructors are called anytime a temporary `string` is passed to the `convert<>`.
-If there is no conversion to be done, we just grab the guts of the temporary `string` 
-and so prolong its lifetime as long as we need it.
+Either of the new constructors gets called anytime a *temporary string* is passed 
+to the converter. If there is no conversion to be done, the non-template version is called 
+and we just grab the guts of the temporary `string` and so prolong its lifetime for as long 
+as we need it. If a conversion is necessary then the templated version gets called. In such 
+case there is nothing to be moved and so we just delegate the call to the templated constructor 
+accepting *const reference* (actually as we delegate the call to the `const&` anyway it is 
+not necessary to define this version of the constructor at all - if we were not going to
+manipulate with access specifiers further on). 
  
 The problem is that now we are outside the scope of *C++03* and so this code does not work 
-on the old compilers. So this approach helps us on new compilers but does not compile 
-on the old ones - not quite what we are looking for.
+on the old compilers. 
+
+So this approach is perfectly functional and completely safe with new compilers but unfortunately 
+does not compile on the old ones - not quite what we were looking for.
 
 Input R/L valuedness
 --------------------
@@ -194,14 +198,14 @@ the fact that we just make a *sanity check build* once a day or so.
 		convert( string_type&& text )
 			: m_buffer( std::move( text ) ) // here we grab'n'reuse the source buffer
 			, m_text( m_buffer.c_str() )
-			, m_length( text.size() )
+			, m_length( m_buffer.size() )
 		{
 			// case #2 or #4
 		}
 
  		template <class T>
 		convert( std::basic_string<T>&& text )
-			: convert( text ) // we are intentionally not moving (we have to do conversion anyway)
+			: convert( text ) // here we cannot move, we have to do the conversion anyway
 		{
 			// case #2 or #4
 		}
