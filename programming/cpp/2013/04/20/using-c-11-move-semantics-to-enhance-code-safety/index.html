@@ -214,7 +214,7 @@ on the old compilers.</p>
 <p>So this approach is perfectly functional and completely safe with new compilers but unfortunately
 does not compile on the old ones - not quite what we were looking for.</p>
 
-<h2>Input R/L valuedness</h2>
+<h2>Input R/L-valuedness</h2>
 
 <p>What if we make those two constructors <em>private</em> instead and so make sure there is
 no one using the conversion this way?</p>
@@ -260,7 +260,7 @@ std::cout &lt;&lt; "This is ok: " &lt;&lt; convert&lt;char&gt;( s1 + s2 ).c_str(
 It is not the <em>R-valuedness</em> of input what is wrong, it is <em>the combination</em>
 of input <code>string</code> <em>R-valuedness</em> and <em>L-valuedness</em> of the <code>convert&lt;&gt;</code> object.</p>
 
-<h2>Converter R/L valuedness</h2>
+<h2>Converter R/L-valuedness</h2>
 
 <p>Now we have to distinguish cases when the <code>convert&lt;&gt;</code> class is instantiated
 as a one-liner (<em>R-value</em>) from cases when it is created as a named variable (<em>L-value</em>).</p>
@@ -271,11 +271,11 @@ like we have for the input <code>string</code> value.</p>
 <p>If <em>C++</em> had explicit <code>this</code> parameter instead of implicit (like <em>Python</em> has with its first
 method argument, conventionally called <code>self</code>), then we could try something like this:</p>
 
-<pre><code class="cpp">convert( this_type&amp;&amp; self, string_type const&amp; text ) { /* case #1 - OK * / }
+<pre><code class="cpp">convert( this_type&amp;&amp; self, string_type const&amp; text ) { /* case #1 - OK */ }
 
-convert( this_type&amp;&amp; self, string_type&amp;&amp; text )  { /* case #2 - OK * / }
+convert( this_type&amp;&amp; self, string_type&amp;&amp; text )  { /* case #2 - OK */ }
 
-convert( this_type const&amp; self, string_type const&amp; text )  { /* case #3 - OK * / }
+convert( this_type const&amp; self, string_type const&amp; text )  { /* case #3 - OK */ }
 
 convert( this_type const&amp; self, string_type&amp;&amp; text )
 {
@@ -289,11 +289,11 @@ convert( this_type const&amp; self, string_type&amp;&amp; text )
 - newly there are also <em>ref-qualifiers</em> (see paper
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2439.htm">Extending move semantics to *this</a> ).</p>
 
-<pre><code class="cpp">convert( string_type const&amp; text ) &amp;&amp; { /* case #1 - OK * / }
+<pre><code class="cpp">convert( string_type const&amp; text ) &amp;&amp; { /* case #1 - OK */ }
 
-convert( string_type&amp;&amp; text ) &amp;&amp; { /* case #2 - OK * / }
+convert( string_type&amp;&amp; text ) &amp;&amp; { /* case #2 - OK */ }
 
-convert( string_type const&amp; text ) &amp; { /* case #3 - OK * / }
+convert( string_type const&amp; text ) &amp; { /* case #3 - OK */ }
 
 convert( string_type&amp;&amp; text ) &amp;
 {
