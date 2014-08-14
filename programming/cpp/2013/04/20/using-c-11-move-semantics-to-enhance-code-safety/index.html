@@ -428,19 +428,15 @@ std::cout &lt;&lt; "Oooops!: " &lt;&lt; t12.c_str() &lt;&lt; std::endl;
 <p>Now if we compile the source code with the <code>CHECK_BACKWARD_COMPATIBILITY</code>
 macro defined we get the following compiler error for the case <strong>#4</strong>:</p>
 
-<p><em>Clang 3.0</em>:</p>
+<p><em>Clang 3.0</em>:
+    movement.cpp:38:24: error: calling a private constructor of class 'converter<char>'
+            converter<char> const t12( s1 + s2 );
+                                  ^</p>
 
-<pre><code>movement.cpp:38:24: error: calling a private constructor of class 'converter&lt;char&gt;'
-        converter&lt;char&gt; const t12( s1 + s2 );
-                              ^
-</code></pre>
-
-<p><em>GCC 4.7</em>:</p>
-
-<pre><code>././convert_impl.hpp:65:2: error: ‘converter&lt;CharT&gt;::converter(std::basic_string&lt;T&gt;&amp;&amp;) 
-    [with T = wchar_t; CharT = char]’ is private
-movement.cpp:38:37: error: within this context
-</code></pre>
+<p><em>GCC 4.7</em>:
+    ././convert_impl.hpp:65:2: error: ‘converter<CharT>::converter(std::basic_string<T>&amp;&amp;)
+        [with T = wchar_t; CharT = char]’ is private
+    movement.cpp:38:37: error: within this context</p>
 
 <p>The last step is to make the <code>convert&lt;&gt;</code> and <code>converter&lt;&gt;</code> work the same way
 on the old compilers.</p>
@@ -514,11 +510,11 @@ features as a kind of <a href="http://en.wikipedia.org/wiki/Static_program_analy
   <h2>Related Posts</h2>
   <ul class="posts">
     
+      <li><span>20 Apr 2013</span> &raquo; <a href="/programming/cpp/2013/04/20/using-c-11-move-semantics-to-enhance-code-safety/">Using C++11 move semantics to enhance code safety</a></li>
+    
       <li><span>06 Jan 2009</span> &raquo; <a href="/linux/2009/01/06/cooperative-linux-with-debian/">Cooperative Linux step by step</a></li>
     
-      <li><span>26 Mar 2009</span> &raquo; <a href="/2009/03/26/port-forwarding-remote-desktop/">Port forwarding & Remote desktop connection (updated)</a></li>
-    
-      <li><span>09 Mar 2012</span> &raquo; <a href="/linux/pdf/2012/03/09/pdf-stream-anatomy/">PDF stream content anatomy</a></li>
+      <li><span>14 Aug 2014</span> &raquo; <a href="/programming/cpp/2014/08/14/loop-auto-vectorization-analysis/">Loop auto-vectorization analysis</a></li>
     
   </ul>
 </div>

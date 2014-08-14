@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>Loop auto-vectorization analysis</title>
+   <meta name="author" content="Filodej" />
+
+   <!-- syntax highlighting CSS -->
+   <!--<link rel="stylesheet" href="/css/syntax.css" type="text/css" />-->
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/screen.css" type="text/css" media="screen, projection" />
+
+   <!-- Highlight.js -->
+   <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/tomorrow-night.min.css">
+   <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+   <script>
+     hljs.initHighlightingOnLoad();
+   </script>
+
+   <!-- Google Analytics -->
+   <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29865222-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+<body>
+
+<div class="site">
+  <div class="title">
+    <a href="/">Filosoft (Filodej's sandpit)</a>
+    <a class="extra" href="/">home</a>
+  </div>
+  
+  <div id="post">
+<h2>Loop auto-vectorization analysis</h2>
+<!--<span>Published: 2014-08-14 00:00:00 +0200</span>
+
+<span>Updated: 2014-08-14 </span>
+
+-->
+<h1>Overview</h1>
+
+<p>Lately I am watching <a href="http://en.wikipedia.org/wiki/Alexander_Stepanov">Alex Stepanov</a>'s
+and <a href="https://www.linkedin.com/pub/paramjit-oberoi/1/275/539">Paramjit Oberoi</a>'s
+<a href="https://www.youtube.com/playlist?list=PLHxtyCq_WDLXFAEA-lYoRNQIezL_vaSX-">Programming Conversations</a>
+with great enjoyment.</p>
+
+<p>In <a href="https://www.youtube.com/watch?v=3K2LmnaLLF8&amp;list=PLHxtyCq_WDLXFAEA-lYoRNQIezL_vaSX-#t=840">Lecture 8</a>
+they introduced a very interesting benchmark. Its source code is available
+<a href="https://github.com/psoberoi/stepanov-conversations-course/blob/master/benchmarks/transformbench.cpp">here</a>
+on GitHub.</p>
+
+<p>There was a very interesting observation that simple operations (like additions) performed on a highly
+optimized data structure (<code>std::vector</code>) can be <em>really really fast</em> on a modern hardware.</p>
+
+<p>I decided to analyze the case little bit more to make sure I understand what is going on at harrdware level.</p>
+
+<h1>Benchmark code</h1>
+
+<p>The core of the benchmark is very simple and looks as follows:</p>
+
+<pre><code class="cpp">template &lt;Sequence S1, Sequence S2, Sequence S3, BinaryOperation Op&gt;
+void time_test(const S1&amp; s1, const S2&amp; s2, S3&amp; s3, Op op, size_t n, size_t m) {
+  typedef typename S1::iterator I;
+  timer t;
+  t.start();
+  for (int i = 0; i &lt; m; ++i)
+    std::transform(s1.begin(), s1.end(), s2.begin(), s3.begin(), op);
+  double time = t.stop()/(double(n) * m);
+  std::cout &lt;&lt; std::setw(6) &lt;&lt; std::fixed &lt;&lt; std::setprecision(2) &lt;&lt; time &lt;&lt; "\t";
+}
+</code></pre>
+
+
+<p>By default the <code>M</code> (batch size) and <code>N</code> (number of batches) are set as follows:</p>
+
+<pre><code class="cpp">uint64_t n = 1000; 
+uint64_t m(100000000 / n);
+</code></pre>
+
+
+<p>Basic types used are <code>int8_t</code>, <code>int16_t</code>, <code>int32_t</code>, <code>int64_t</code>, <code>float</code> and <code>double</code>.</p>
+
+<p>Container types used are <code>std::vector</code>, <code>std::deque</code> and <code>std::list</code>.</p>
+
+<p>Binary operations are <em>addition</em>, <em>addition with inlining disabled</em>, <em>multiplication</em>, <em>norm</em>,
+<em>conversion</em>, <em>division</em>, <em>square root</em> and <em>cube root (implemented in terms of the <code>pow</code> function)</em>.</p>
+
+<p>An example of simplest binary operation <code>plus</code> looks like this:
+ <pre><code class="cpp">template &lt;typename N&gt;
+struct plus
+{
+  N operator() (const N&amp; x, const N&amp; y) { return  x + y; }
+};
+</code></pre></p>
+
+<h1>Benchmark Results</h1>
+
+<p>When I built the benchmark with GCC 4.8.1 with following options: <code>g++ -O3 -std=c++11</code></p>
+
+<p>... And run it on my machine with CPU: <code>Intel(R) Core(TM) i7-3630QM CPU @ 2.40GHz</code></p>
+
+<p>... then I get the following results in (quite similar to ones shown in the video):</p>
+
+<pre><code class="prettyprint">Applying operation 100000000 times (sequence length 1000 by 100000 iterations)
+          type    plus   fplus   times    norm   cnvrt     div    sqrt     pow  
+ vector&lt;int8_t&gt;   0.06    1.81    0.14    0.21    1.04    2.71    5.85   62.31  
+vector&lt;int16_t&gt;   0.10    2.13    0.09    0.12    1.05    2.72    6.01   63.85  
+vector&lt;int32_t&gt;   0.18    2.14    0.30    0.52    0.74    2.72    6.01   63.80  
+vector&lt;int64_t&gt;   0.34    1.86    0.92    1.23    2.09    9.62    5.96   63.89  
+  vector&lt;float&gt;   0.41    2.14    0.38    0.45    0.38    2.12    6.59   63.81  
+ vector&lt;double&gt;   0.65    2.14    0.60    0.78    0.61    4.16    5.98   63.41  
+  deque&lt;int8_t&gt;   1.27    2.41    1.25    1.56    2.10    3.64    5.91   64.44  
+ deque&lt;int16_t&gt;   1.30    2.22    1.29    1.36    2.20    3.84    6.30   66.68  
+ deque&lt;int32_t&gt;   1.33    2.25    1.32    1.42    2.17    3.74    6.21   66.48  
+ deque&lt;int64_t&gt;   1.37    2.57    1.33    1.48    2.09   10.33    6.01   66.18  
+   deque&lt;float&gt;   1.30    2.19    1.24    1.33    1.24    2.08    6.58   64.26  
+  deque&lt;double&gt;   1.37    2.27    1.34    1.49    1.29    4.15    6.04   63.92  
+   list&lt;int8_t&gt;   2.36    2.45    2.31    2.28    2.21    3.05    5.88   63.51  
+  list&lt;int16_t&gt;   2.24    2.30    2.17    2.25    2.17    3.02    6.03   65.05  
+  list&lt;int32_t&gt;   2.20    2.48    2.24    2.24    2.27    3.02    6.23   64.90  
+  list&lt;int64_t&gt;   2.22    2.46    2.16    2.30    2.21   10.02    6.13   65.06  
+    list&lt;float&gt;   2.28    2.51    2.19    2.15    2.19    2.33    6.55   64.87  
+   list&lt;double&gt;   2.26    2.51    2.19    2.17    2.20    4.22    6.00   64.31  
+</code></pre>
+
+
+<h1>Benchmark analysis</h1>
+
+<p>The benchmark results shown above are in nanoseconds per operation.
+If the CPU speed is <em>2.4 GHz</em> then a single tick is every <em>0.417 ns</em>.
+According to the benchmark results it lokks like a single <code>plus</code> operations on 8-bit integers
+take roughly <em>0.06 ns</em>. It would mean that my CPU is capable of roughly 7 such addition operations
+per single clock tick.</p>
+
+<p>But when we think about it bit more, we find out that conceptually CPU has to perform many more operations
+for every addition operations, namely:</p>
+
+<ul>
+<li>2 loads</li>
+<li>1 addition</li>
+<li>1 store</li>
+<li>3 pointer increments (1st source, 2nd source, destination)</li>
+<li>1 compare and conditional jump</li>
+</ul>
+
+
+<p>It would mean that the CPU is able to achieve a stunning rate of more than 50 instructions per tick.</p>
+
+<p>It does not seem very likely. It is fact that Intel processors are highly
+<a href="http://en.wikipedia.org/wiki/Superscalar">superscalar</a>, but it seems unlikely that they are able
+to achieve such a great level of parallelism we see here.</p>
+
+<p>Something different must be in action here and that "something" seems to be some kind of
+automatic <a href="http://en.wikipedia.org/wiki/Vectorization_%28parallel_computing%29#Loop-level_automatic_vectorization">loop vectorization</a>.</p>
+
+<h1>Assembly inspection</h1>
+
+<p>Now I will focus on GCC compiler in particular (version 4.8.1) and its
+<a href="http://gcc.gnu.org/projects/tree-ssa/vectorization.html">auto vectorization capabilities</a>.
+(Of course similar capabilities are available on other modern compilers like
+<a href="http://msdn.microsoft.com/en-us/library/hh872235.aspx">MSVC 2013</a>
+or <a href="https://software.intel.com/sites/products/documentation/doclib/iss/2013/compiler/cpp-lin/GUID-32ED933F-5E8A-4909-A581-4E9DB59A6933.htm">Intel C++ Compiler</a>).</p>
+
+<p>In GCC the <em>auto-vectorization</em> is enabled by the flag <code>-ftree-vectorize</code> and by default at <code>-O3</code>.
+Generated instructions also depend on architecture (on <em>x86_64</em> we can use <code>-msse</code>/<code>-msse2</code>)
+and floating point math settings (<code>-ffast-math</code> and <code>-fassociative-math</code>).</p>
+
+<h2>Scalar code</h2>
+
+<p>First we start with a plain scalar code. We want ot use <code>-O3</code> optimization but as this optimization level
+enables <em>auto-vectorization</em> by default we have to disable it explicitly.
+We can use the <code>-fno-tree-vectorize</code> compiler option for that.</p>
+
+<p>So the resulting compiler options are: <code>-std=c++11 -O3 -fno-tree-vectorize</code>.
+The assembly code for the <code>std::transform</code> loop boody looks as follows
+(see <a href="http://goo.gl/t8qtzO">compiler explorer</a> for complete program):</p>
+
+<pre><code>.L39:
+    movzbl  (%r8,%rdx), %ecx
+    addb    (%rsi,%rdx), %cl
+    movb    %cl, (%rdi,%rdx)
+    addq    $1, %rdx
+    cmpq    %rax, %rdx
+    jne     .L39
+</code></pre>
+
+<p>We can see that the loop body consists of 6 instructions. That is 2 instruction less than
+we estimated, due to the fact that we expected 3 pointer increments but actually there is
+just a single index (held in the <code>%RDX</code> register) incremented in each iteration.</p>
+
+<p>To compute all the 1000 additions there is exactly 1000 loop iterations.</p>
+
+<p>The fact is that such scalar code does not run 0.06 ns, but 0.68 ns instead. It means that our
+super-scalar CPU core can handle between 3 to 4 instructions per cycle on average and <em>that</em>
+sounds much more realistic.</p>
+
+<blockquote><p>( 6 instructions / ( 0.68 ns / 0.417 ns/cycle ) = 3.679 instructions/cycle )</p></blockquote>
+
+<h2>Vectorized code for SSE2</h2>
+
+<p>Now we can enable the <em>auto-vectorization</em> and see how the assembly changes.</p>
+
+<p>We can use the simple compiler options: <code>-std=c++11 -O3</code> (as explicitly using the <code>-msse</code> or <code>-msse2</code>
+options generates identical assembly code).
+The assembly code for the <code>std::transform</code> loop body looks as follows
+(See <a href="http://goo.gl/pzozPb">compiler explorer</a> for complete program):</p>
+
+<pre><code>    shrq  $4, %r11
+    ...
+.L52:
+    movdqu  (%r8,%rdi), %xmm0
+    addq    $1, %rbp
+    movdqu  (%rdx,%rdi), %xmm1
+    paddb   %xmm1, %xmm0
+    movdqu  %xmm0, (%rsi,%rdi)
+    addq    $16, %rdi
+    cmpq    %rbp, %r11
+    ja      .L52
+</code></pre>
+
+<p>We can see that <code>R11</code> register containing number 1000 gets divided by 16 (see the right shift instruction by 4 bits).
+So now the loop is only 62 interations long and we perform 16 additions at once thanks to <a href="http://en.wikipedia.org/wiki/SIMD">SIMD</a>
+instructions performed on <code>XMM</code> registers.</p>
+
+<p>Number of instructions for each loop is now 8 and CPU is able to perform almost 3.5 instructions per cycle</p>
+
+<blockquote><p>( 8 instructions / ( 16 additions * 0.06 ns/addition / 0.417 ns/cycle ) = 3.475 instructions/cycle ).</p></blockquote>
+
+<p>So using <a href="http://en.wikipedia.org/wiki/SSE2">SSE2</a> instructions with 128-bit <code>XMM</code> registers enabled us to perfom
+vectorized operations (16 additions at once) with roughly same cadency as a plain old scalar code.</p>
+
+<p>Here is a description of the two instructions used above:</p>
+
+<blockquote><p><strong><a href="http://x86.renejeschke.de/html/file_module_x86_id_184.html">MOVDQU</a></strong></p>
+
+<p>Moves a double quadword from the source operand (second operand) to the destination operand (first operand).
+This instruction can be used to load an XMM register from a 128-bit memory location, to store the contents
+of an XMM register into a 128-bit memory location, or to move data between two XMM registers.
+When the source or destination operand is a memory operand, the operand may be unaligned
+on a 16-byte boundary without causing a general-protection exception (#GP) to be generated.</p>
+
+<p><strong><a href="http://x86.renejeschke.de/html/file_module_x86_id_226.html">PADDB</a></strong></p>
+
+<p>Performs an SIMD add of the packed integers from the source operand (second operand) and the destination
+operand (first operand), and stores the packed integer results in the destination operand.
+[...] Overflow is handled with wraparound, as described in the following paragraphs.</p>
+
+<p>These instructions can operate on either 64-bit or 128-bit operands. When operating on 64-bit operands,
+the destination operand must be an MMX technology register and the source operand can be either an MMX
+technology register or a 64-bit memory location. When operating on 128- bit operands, the destination
+operand must be an XMM register and the source operand can be either an XMM register or a 128-bit memory location.</p>
+
+<p>The PADDB instruction adds packed byte integers. When an individual result is too large to be represented
+in 8 bits (overflow), the result is wrapped around and the low 8 bits are written to the destination operand
+(that is, the carry is ignored).</p></blockquote>
+
+<h2>Vectorized code for AVX</h2>
+
+<p>A next step is to use more modern <a href="http://en.wikipedia.org/wiki/Advanced_Vector_Extensions">AVX</a> instructions
+to see if we gain anything by replacing older SSE2.</p>
+
+<p>For that we can use folowing compiler options: <code>-std=c++11 -O3 -mavx</code>.
+The assembly code for the <code>std::transform</code> loop body looks as follows
+(See <a href="http://goo.gl/1pChjt">compiler explorer</a> for complete program):</p>
+
+<pre><code>    shrq    $4, %r11
+    ...
+.L55:
+    vmovdqu (%rax,%r8), %xmm1
+    addq    $1, %r12
+    vmovdqu (%rdx,%r8), %xmm0
+    vpaddb  %xmm0, %xmm1, %xmm0
+    vmovdqu %xmm0, (%rsi,%r8)
+    addq    $16, %r8
+    cmpq    %r12, %r11
+    ja      .L55
+</code></pre>
+
+<p>Generated assembly looks quite similar, loop body still consists of 8 instructions and there is 62 loop iterations
+in total. So the <code>AVX</code> is using 128-bit <code>XMM</code> registers as well as <code>SSE2</code>. It seems that <code>AVX</code> instructions do not
+gain us any speedup over <code>SSE</code>.</p>
+
+<h2>Vectorized code for AVX2</h2>
+
+<p>Now we can try <a href="http://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions_2">AVX2</a> instructions
+with 256-bit <code>YMM</code> registers.</p>
+
+<p>For that we can use folowing compiler options: <code>-std=c++11 -O3 -mavx2</code>.
+The assembly code for the <code>std::transform</code> loop body looks as follows
+(See <a href="http://goo.gl/uq1Qr1">compiler explorer</a> for complete program):</p>
+
+<pre><code>    shrq         $5, %r11   
+    ...
+.L56:
+    vmovdqu      (%r8,%rcx), %xmm1
+    addq         $1, %r12
+    vmovdqu      (%rax,%rcx), %xmm0
+    vinserti128  $0x1, 16(%r8,%rcx), %ymm1, %ymm1
+    vinserti128  $0x1, 16(%rax,%rcx), %ymm0, %ymm0
+    vpaddb       %ymm0, %ymm1, %ymm0
+    vmovdqu      %xmm0, (%rdi,%rcx)
+    vextracti128 $0x1, %ymm0, 16(%rdi,%rcx)
+    addq         $32, %rcx
+    cmpq         %r12, %r11
+    ja           .L56
+</code></pre>
+
+<p>We can see that now the <code>R11</code> register is divided by 32 (right shift by 5 bits) and so the total number of loop iteration
+drops to only 31. The loop body consists of 11 instructions. As the 256-bit registers are loaded by 128-bit parts the number
+of instructions is a bit higher, but still this variant has a potential to be significantly faster than <code>SSE2</code> of <code>AVX</code>.
+Unfortunately my CPU does not support <code>AVX2</code> instruction set so I cannot confirm that by running the benchmark.</p>
+
+<p>Here is a short description of the vector instruction used:</p>
+
+<blockquote><p><a href="http://www.felixcloutier.com/x86/VINSERTI128.html">VINSERTI128</a></p>
+
+<p>Replaces either the lower half or the upper half of a 256-bit YMM register with the value of a 128-bit source operand.
+The other half of the destination is unchanged.</p>
+
+<p><a href="http://www.felixcloutier.com/x86/VEXTRACTI128.html">VEXTRACTI128</a></p>
+
+<p>Extracts either the lower half or the upper half of a 256-bit YMM register and copies the value to a 128-bit destination operand.</p></blockquote>
+
+<h2>Vectorized code for AVX-512</h2>
+
+<p>The latest variant of <code>AVX</code> extensions is upcoming <a href="http://en.wikipedia.org/wiki/AVX-512">AVX-512</a>
+adding support for 512-bit <code>ZMM</code> registers. CPU(s) supporting such instructions will begin to appear
+<a href="http://newsroom.intel.com/community/intel_newsroom/blog/2014/06/23/intel-re-architects-the-fundamental-building-block-for-high-performance-computing">during 2015</a>.</p>
+
+<p>There should be at least some support for <code>AVX-512</code> in GCC 4.9 compiler (see the <a href="https://gcc.gnu.org/gcc-4.9/changes.html">CHANGES</a>).</p>
+
+<p>So I tried the corresponding compiler options: <code>-std=c++11 -O3 -mavx512f</code>, but unfortunately was unable to convince
+the compiler to actually utilize the 512-bit instructions and registers
+(see the <a href="http://goo.gl/PBP3Ad">compiler explorer</a> for whole program):</p>
+
+<pre><code>    shrq         $5, %rax
+    ...
+.L56:
+    vmovdqu      (%rbx,%r11), %xmm0
+    addq         $1, %r15
+    vinserti128  $0x1, 16(%rbx,%r11), %ymm0, %ymm0
+    vpaddb       (%r9,%r11), %ymm0, %ymm0
+    vmovups      %xmm0, (%r10,%r11)
+    vextracti128 $0x1, %ymm0, 16(%r10,%r11)
+    addq         $32, %r11
+    cmpq         %r15, %rax
+    ja           .L56
+</code></pre>
+
+<p>At least the GCC compiler version 4.9 seems to generate a better assembly (still using 256-bit registers but shaven off
+2 instruction from the tight loop). It is worth noting that it is the case even for <code>-mavx2</code> compiler option,
+so it seems to be some general optimization of the <em>loop auto-vectorization</em> logic.</p>
+
+<p>If we were able to utilize the 512-bit registers, then the total number of iterations would have dropped to just 15!
+But we have yet to see a hardware with such wide vectorization capabilities.</p>
+
+<h1>Conclusion</h1>
+
+<p>In this article I have analyzed an interesting benchmark showing how capable is the contemporary hardware
+and how far the x86 architecture got from its first days.</p>
+
+<p>A look at the assembly exposed simple principles how the <em>loop auto-vectorization</em> works and how great potencial
+it has in combination with other technologies (like <em>superscalar architecture</em> and <em>parallel processing</em>).</p>
+
+<p>It is also important to keep in mind that current compiler support for <em>auto-vectorization</em> is highly heuristic
+and works best for simple numeric types in continuous memory. Every programmer should be aware of potential gains
+when he uses simple arrays instead of more sophisticated data structures.</p>
+
+</div>
+
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>14 Aug 2014</span> &raquo; <a href="/programming/cpp/2014/08/14/loop-auto-vectorization-analysis/">Loop auto-vectorization analysis</a></li>
+    
+      <li><span>06 Jan 2009</span> &raquo; <a href="/linux/2009/01/06/cooperative-linux-with-debian/">Cooperative Linux step by step</a></li>
+    
+      <li><span>20 Apr 2013</span> &raquo; <a href="/programming/cpp/2013/04/20/using-c-11-move-semantics-to-enhance-code-safety/">Using C++11 move semantics to enhance code safety</a></li>
+    
+  </ul>
+</div>
+
+  
+  <div class="footer">
+    <div class="contact">
+      <p>
+        Filodej<br />
+        philodej@gmail.com
+      </p>
+    </div>
+  </div>
+</div>
+
+<a href="http://github.com/filodej"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
+
+</body>
+</html>
